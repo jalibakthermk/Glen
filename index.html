@@ -1,0 +1,705 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GLEn — Headlamp Glare Evaluator</title>
+<style>
+.viz-root{
+  color-scheme:light;
+  --page:#f4f4f1; --surface-1:#fcfcfb; --surface-2:#f0efec;
+  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#7a7974;
+  --grid:#e1e0d9; --border:rgba(11,11,11,0.12);
+  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
+  --accent:#2a78d6;
+  --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])) .viz-root{
+    color-scheme:dark;
+    --page:#121211; --surface-1:#1a1a19; --surface-2:#232322;
+    --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
+    --grid:#2c2c2a; --border:rgba(255,255,255,0.12);
+    --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --accent:#3987e5;
+  }
+}
+:root[data-theme="dark"] .viz-root{
+  color-scheme:dark;
+  --page:#121211; --surface-1:#1a1a19; --surface-2:#232322;
+  --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
+  --grid:#2c2c2a; --border:rgba(255,255,255,0.12);
+  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --accent:#3987e5;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px}
+.viz-root{background:var(--page);color:var(--text-primary);min-height:100vh}
+header{padding:18px 24px 10px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+header h1{margin:0;font-size:22px;letter-spacing:.2px}
+header .sub{color:var(--text-secondary)}
+header .spacer{flex:1}
+button,select,input{font:inherit;color:var(--text-primary)}
+button{background:var(--surface-1);border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer}
+button:hover{background:var(--surface-2)}
+button.primary{background:var(--accent);color:#fff;border-color:transparent}
+.layout{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:0 24px 24px}
+@media (max-width:900px){.layout{grid-template-columns:1fr;padding:0 12px 12px}.main{order:-1}header{padding:14px 12px 8px}}
+.panel{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
+.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);margin:0 0 10px}
+.panel + .panel{margin-top:12px}
+.field{display:grid;grid-template-columns:1fr 110px;align-items:center;gap:8px;margin:6px 0}
+.field label{color:var(--text-secondary)}
+.field input,.field select{width:100%;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2)}
+.hint{color:var(--text-muted);font-size:12px;margin:4px 0 8px;line-height:1.4}
+.file{margin:6px 0 10px}
+.file .fname{font-size:12px;color:var(--text-secondary);margin-top:3px;word-break:break-all}
+.main{min-width:0}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px}
+.tile{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
+.tile .t-head{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:8px}
+.sw{display:inline-block;width:12px;height:12px;border-radius:3px}
+.tile .row{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--grid)}
+.tile .row:first-of-type{border-top:none}
+.tile .k{color:var(--text-secondary)}
+.tile .v{font-variant-numeric:tabular-nums;text-align:right}
+.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:1px 7px;border-radius:999px;border:1px solid var(--border);margin-left:6px}
+.chip .dot{width:8px;height:8px;border-radius:50%}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+@media (max-width:1200px){.charts{grid-template-columns:1fr}}
+.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;position:relative;min-width:0}
+.card h3{margin:0 0 2px;font-size:14px}
+.card .cap{color:var(--text-muted);font-size:12px;margin-bottom:6px}
+.card canvas{width:100%;height:260px;display:block;touch-action:pan-y}
+.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin:4px 0 0}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{display:inline-block;width:14px;height:2px;border-radius:1px}
+.tooltip{position:absolute;pointer-events:none;background:var(--surface-1);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.15);display:none;white-space:nowrap;z-index:5;font-variant-numeric:tabular-nums}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
+table{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
+th,td{padding:4px 8px;border-bottom:1px solid var(--grid);text-align:right}
+th{color:var(--text-secondary);font-weight:600;position:sticky;top:0;background:var(--surface-1)}
+.tablewrap{max-height:380px;overflow:auto}
+.note{color:var(--text-secondary);font-size:12px;line-height:1.5}
+.warnbox{border-left:3px solid var(--warning);padding:6px 10px;background:var(--surface-2);border-radius:4px;margin-top:8px;font-size:12px;display:none}
+footer{padding:12px 24px 24px;color:var(--text-muted);font-size:12px}
+details summary{cursor:pointer;color:var(--text-secondary)}
+</style>
+</head>
+<body>
+<div class="viz-root">
+<header>
+  <h1>GLEn <span style="font-size:13px;font-weight:500;color:var(--text-muted)">v0.2</span></h1>
+  <span class="sub">Headlamp glare &amp; discomfort evaluator — oncoming driver, straight road</span>
+  <span class="spacer"></span>
+  <button id="themeBtn" title="Toggle light/dark">Light / dark</button>
+</header>
+
+<div class="layout">
+<aside>
+  <div class="panel">
+    <h2>Photometry</h2>
+    <div class="file">
+      <div>Left lamp IES</div>
+      <input type="file" id="fileL" accept=".ies,.IES,.txt">
+      <div class="fname" id="nameL">Demo low beam (synthetic)</div>
+    </div>
+    <div class="file">
+      <div>Right lamp IES <span class="hint">(optional — left file used if empty)</span></div>
+      <input type="file" id="fileR" accept=".ies,.IES,.txt">
+      <div class="fname" id="nameR">—</div>
+      <button id="clrR" style="margin-top:4px;padding:2px 8px;font-size:12px">Clear right file</button>
+    </div>
+    <div class="field"><label>Angle system</label>
+      <select id="angSys"><option value="auto">Auto (from file)</option><option value="A">Type A (H about vertical axis)</option><option value="B">Type B (V planes about lateral axis)</option><option value="C">Type C (C-planes, γ)</option></select></div>
+    <div class="field" id="cfwdRow"><label>C-plane pointing ahead</label>
+      <select id="cFwd"><option value="0">C0</option><option value="90">C90</option><option value="180">C180</option><option value="270">C270</option></select></div>
+    <div class="field"><label>H+ direction in file</label>
+      <select id="hdir"><option value="right">Right</option><option value="left">Left</option></select></div>
+    <div class="field"><label>Vertical aim (°, − = down)</label><input id="aimV" type="number" step="0.01" value="0"></div>
+    <div class="field"><label>Horizontal aim (°, + = right)</label><input id="aimH" type="number" step="0.01" value="0"></div>
+    <div class="hint" id="iesInfo"></div>
+    <div class="warnbox" id="iesWarn"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Vehicle</h2>
+    <div class="field"><label>Lamp mounting height (m)</label><input id="hLamp" type="number" step="0.01" value="0.65"></div>
+    <div class="field"><label>Lamp spacing, centre–centre (m)</label><input id="spacing" type="number" step="0.01" value="1.40"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Road &amp; observer</h2>
+    <div class="field"><label>Traffic</label>
+      <select id="traffic"><option value="RHT">RHT (drive right)</option><option value="LHT">LHT (drive left)</option></select></div>
+    <div class="field"><label>Observer lateral offset (m)</label><input id="lat" type="number" step="0.05" value="3.10"></div>
+    <div class="hint">Lateral distance from your vehicle centreline to the oncoming driver's eye. For a 3.5 m lane, about 3.1 m (lane width less ~0.4 m seat offset).</div>
+    <div class="field"><label>Eye heights (m, comma list ≤3)</label><input id="eyes" type="text" value="1.1, 2.2"></div>
+    <div class="field"><label>Distance from (m)</label><input id="dmin" type="number" step="1" value="10"></div>
+    <div class="field"><label>Distance to (m)</label><input id="dmax" type="number" step="1" value="200"></div>
+    <div class="field"><label>Step (m)</label><input id="dstep" type="number" step="0.5" value="1"></div>
+  </div>
+
+  <div class="panel">
+    <h2>Glare model</h2>
+    <div class="field"><label>Adaptation luminance L<sub>a</sub> (cd/m²)</label><input id="La" type="number" step="0.01" value="0.3"></div>
+    <div class="hint">≈0.1 unlit rural road · 0.3–1 lit road. Used for both de Boer and TI.</div>
+    <div class="field"><label>Observer age (years)</label><input id="age" type="number" step="1" value="40"></div>
+    <div class="field"><label>Eye pigmentation p</label>
+      <select id="pig"><option value="0">0 (very dark)</option><option value="0.5" selected>0.5 (brown)</option><option value="1">1 (light blue)</option></select></div>
+    <div class="field"><label>Veiling luminance model</label>
+      <select id="lvModel"><option value="cie">CIE 146 (age-adjusted)</option><option value="sh">Stiles–Holladay</option></select></div>
+    <div class="field"><label>Min. glare angle (°)</label><input id="thMin" type="number" step="0.05" value="0.1"></div>
+    <div class="field"><label>Eye illuminance plane</label>
+      <select id="eyePlane"><option value="lamp">Normal to lamp (worst case)</option><option value="los">Normal to line of sight (E·cosθ)</option></select></div>
+    <div class="field"><label>Windscreen transmission τ</label><input id="tau" type="number" step="0.01" min="0.01" max="1" value="1"></div>
+    <div class="hint">τ = 1 gives the illuminance outside the car. Typical windscreens are about 0.75–0.9.</div>
+  </div>
+
+  <div class="panel">
+    <h2>Limits (pass / fail)</h2>
+    <div class="field"><label>Max eye illuminance (lx)</label><input id="limE" type="number" step="0.05" value="1.0"></div>
+    <div class="field"><label>Min de Boer W</label><input id="limW" type="number" step="0.1" value="4"></div>
+    <div class="field"><label>Max TI (%)</label><input id="limTI" type="number" step="1" value="15"></div>
+    <div class="hint">Project defaults — set these to your customer or study criteria.</div>
+  </div>
+</aside>
+
+<section class="main">
+  <div class="warnbox" id="cfgWarn" style="margin:0 0 12px"></div>
+  <div class="tiles" id="tiles"></div>
+
+  <div class="charts">
+    <div class="card"><h3>Eye illuminance</h3><div class="cap">E<sub>eye</sub> (lx, log scale) vs distance, both lamps summed</div>
+      <canvas id="cE"></canvas><div class="legend" id="lgE"></div><div class="tooltip" id="ttE"></div></div>
+    <div class="card"><h3>Discomfort glare — de Boer W</h3><div class="cap">1 unbearable · 3 disturbing · 5 just acceptable · 7 satisfactory · 9 unnoticeable</div>
+      <canvas id="cW"></canvas><div class="legend" id="lgW"></div><div class="tooltip" id="ttW"></div><div class="hint" id="wNote"></div></div>
+    <div class="card"><h3>Disability glare — threshold increment</h3><div class="cap">TI (%) vs distance</div>
+      <canvas id="cT"></canvas><div class="legend" id="lgT"></div><div class="tooltip" id="ttT"></div><div class="hint" id="tiNote"></div></div>
+    <div class="card"><h3>Eye-point trace through the beam (left lamp)</h3><div class="cap">Isocandela map in the lamp frame (aim applied), log scale; dots every 10 m, large dot = nearest distance shown</div>
+      <canvas id="cM"></canvas><div class="legend" id="lgM"></div><div class="tooltip" id="ttM"></div></div>
+  </div>
+
+  <div class="toolbar">
+    <button class="primary" id="csvBtn">Export CSV</button>
+    <button id="copyBtn">Copy CSV</button>
+    <button id="tblBtn">Show data table</button>
+    <span class="note" id="b50"></span>
+  </div>
+  <div class="card" id="tblCard" style="display:none"><div class="tablewrap" id="tbl"></div></div>
+
+  <div class="card" style="margin-top:12px">
+    <details>
+      <summary>Method &amp; formulas</summary>
+      <div class="note">
+        <p><b>Geometry.</b> Vehicle frame: x forward, y left, z up. Lamps at (0, ±s/2, h<sub>lamp</sub>), observer eye at (d, ±offset, h<sub>eye</sub>), with offset to the left for RHT and to the right for LHT. The direction to the eye is rotated into the lamp frame (aim) and converted to the file's angle system: Type A H = atan2(y,x), V = asin(z/r); Type B V = atan2(z,x), H = asin(y/r); Type C γ = acos(−z/r), C = atan2(y,x). Intensity uses bilinear interpolation with IES symmetry handling.</p>
+        <p><b>Eye illuminance.</b> E = I / r² per lamp, with the observer's eye facing the lamp (worst case), summed over both lamps.</p>
+        <p><b>Glare angle.</b> θ is the angle between the oncoming driver's line of sight (straight along the road) and the direction to each lamp, clamped at the set minimum.</p>
+        <p><b>de Boer (Schmidt-Clausen &amp; Bindels).</b> W = 5 − 2·log₁₀ Σ E<sub>i</sub> / [C<sub>p00</sub>(1 + √(L<sub>a</sub>/C<sub>pL</sub>))·θ<sub>i</sub><sup>0.46</sup>], with C<sub>p00</sub> = 0.003 lx·min<sup>−0.46</sup>, C<sub>pL</sub> = 0.04 cd/m², θ in arcmin. Displayed W is clipped to 1–9.</p>
+        <p><b>Veiling luminance.</b> CIE 146: L<sub>v</sub> = Σ E<sub>i</sub>[10/θ³ + (5/θ² + 0.1p/θ)(1 + (A/62.5)⁴) + 0.0025p], θ in degrees. Stiles–Holladay: L<sub>v</sub> = 10 Σ E<sub>i</sub>/θ<sub>i</sub>². <b>TI</b> = 65·L<sub>v</sub>/L<sub>a</sub><sup>0.8</sup> % (defined for L<sub>a</sub> ≤ 5 cd/m²).</p>
+        <p><b>Validity.</b> CIE 146 veiling luminance is defined for θ = 0.1–100°, Stiles–Holladay for about 1–30°; de Boer data cover roughly 0.1–15°. Points outside these ranges are marked in the table and CSV. At long distances θ becomes small and the 1/θ³ term in CIE 146 dominates, so TI can grow with distance; read those values with care.</p>
+        <p><b>Scope of v1.</b> Straight, flat road; static observer looking along the road; no windscreen transmission or dirty-glass scatter. Planned next: curves, gradients, mirror glare for preceding vehicles, and a PDF report.</p>
+      </div>
+    </details>
+  </div>
+</section>
+</div>
+<footer>GLEn v0.2 · © 2026 Jalib Akther · MIT License · Results are engineering estimates; check them against measured data before relying on them.</footer>
+</div>
+
+<script id="core">
+/* ================= GLEn core (pure functions, no DOM) ================= */
+const DEG = Math.PI / 180;
+
+function parseIES(text) {
+  const lines = text.replace(/\r/g, '').split('\n');
+  let ti = lines.findIndex(l => /^\s*TILT\s*=/i.test(l));
+  if (ti < 0) throw new Error('No TILT= line found — is this an IES LM-63 file?');
+  const tiltVal = lines[ti].split('=')[1].trim().toUpperCase();
+  let toks = lines.slice(ti + 1).join(' ').trim().split(/[\s,]+/).filter(Boolean).map(Number);
+  let p = 0;
+  if (tiltVal === 'INCLUDE') { p++; const n = toks[p++]; p += 2 * n; }
+  const header = toks.slice(p, p + 13); p += 13;
+  if (header.length < 13 || header.some(isNaN)) throw new Error('Could not read the IES header numbers.');
+  const [nLamps, lumens, mult, nV, nH, ptype, units, w, l, h, ballast, future, watts] = header;
+  const V = toks.slice(p, p + nV); p += nV;
+  const H = toks.slice(p, p + nH); p += nH;
+  const cd = [];
+  for (let i = 0; i < nH; i++) { cd.push(toks.slice(p, p + nV).map(x => Math.max(0, x * mult * (ballast || 1)))); p += nV; }
+  if (cd.length !== nH || cd[nH - 1].length !== nV || cd[nH - 1].some(isNaN)) throw new Error('Candela table is incomplete.');
+  const typeName = { 1: 'C', 2: 'B', 3: 'A' }[ptype] || '?';
+  let peak = 0; for (const row of cd) for (const v of row) if (v > peak) peak = v;
+  const keywords = lines.slice(0, ti).filter(s => s.trim().startsWith('[')).slice(0, 4).map(s => s.trim());
+  return { type: typeName, V, H, cd, nV, nH, peak, keywords };
+}
+
+function idx(arr, x) { // index i such that arr[i] <= x <= arr[i+1]; -1 if outside
+  const n = arr.length;
+  if (n === 1) return x === arr[0] ? 0 : -1;
+  if (x < arr[0] - 1e-9 || x > arr[n - 1] + 1e-9) return -1;
+  let lo = 0, hi = n - 1;
+  while (hi - lo > 1) { const m = (lo + hi) >> 1; if (arr[m] <= x) lo = m; else hi = m; }
+  return lo;
+}
+
+function lookupRaw(ies, h, v) { // bilinear on file grid; h=horizontal/C angle, v=vertical/gamma
+  const { H, V, cd } = ies;
+  const j = idx(V, v); if (j < 0) return 0;
+  let i;
+  if (H.length === 1) i = 0; else { i = idx(H, h); if (i < 0) return 0; }
+  const j2 = Math.min(j + 1, V.length - 1), i2 = Math.min(i + 1, H.length - 1);
+  const tv = j2 === j ? 0 : (v - V[j]) / (V[j2] - V[j]);
+  const th = i2 === i ? 0 : (h - H[i]) / (H[i2] - H[i]);
+  const a = cd[i][j] * (1 - tv) + cd[i][j2] * tv;
+  const b = cd[i2][j] * (1 - tv) + cd[i2][j2] * tv;
+  return a * (1 - th) + b * th;
+}
+
+/* Direction (lamp frame) -> intensity. x fwd, yR = right-positive, z up.
+   opt: { hdirRight, angleSys: 'auto'|'A'|'B'|'C', cForward: C-plane pointing straight ahead (Type C only) } */
+function intensityDir(ies, x, yR, z, opt) {
+  opt = typeof opt === 'object' ? opt : { hdirRight: !!opt };
+  const r = Math.hypot(x, yR, z); if (r === 0) return 0;
+  const yF = opt.hdirRight ? yR : -yR; // lateral in file's H+ sense
+  const sys = opt.angleSys && opt.angleSys !== 'auto' ? opt.angleSys : ies.type;
+  if (sys === 'C') {
+    const g = Math.acos(Math.max(-1, Math.min(1, -z / r))) / DEG;
+    let c = (opt.cForward || 0) + Math.atan2(yF, x) / DEG; c = ((c % 360) + 360) % 360;
+    const H = ies.H, Hmax = H[H.length - 1];
+    if (H.length === 1) return lookupRaw(ies, H[0], g);
+    if (Math.abs(Hmax - 90) < 1e-6) { c = c % 180; if (c > 90) c = 180 - c; }
+    else if (Math.abs(Hmax - 180) < 1e-6) { if (c > 180) c = 360 - c; }
+    else if (c > Hmax && H[0] === 0 && Hmax < 360) { // wrap gap between last plane and 360° (= C0)
+      const t = (c - Hmax) / (360 - Hmax);
+      return lookupRaw(ies, Hmax, g) * (1 - t) + lookupRaw(ies, 0, g) * t;
+    }
+    return lookupRaw(ies, c, g);
+  }
+  let h, v;
+  if (sys === 'B') { v = Math.atan2(z, x) / DEG; h = Math.asin(yF / r) / DEG; }   // planes about the lateral axis
+  else { h = Math.atan2(yF, x) / DEG; v = Math.asin(z / r) / DEG; }              // Type A: H about vertical axis, V elevation
+  if (ies.H[0] >= 0 && h < 0) h = -h; // file stores one half only (left/right symmetric)
+  return lookupRaw(ies, h, v);
+}
+
+/* World vector (x fwd, yL left, z up) -> lamp frame, applying aim. */
+function toLampFrame(x, yL, z, aimV, aimH) {
+  let yR = -yL;
+  const p = -aimV * DEG; // pitch
+  const x1 = x * Math.cos(p) - z * Math.sin(p), z1 = x * Math.sin(p) + z * Math.cos(p);
+  const q = aimH * DEG;  // yaw, right-positive
+  const x2 = x1 * Math.cos(q) + yR * Math.sin(q), yR2 = yR * Math.cos(q) - x1 * Math.sin(q);
+  return [x2, yR2, z1];
+}
+
+/* Lamp-frame direction -> (H right-positive, V up) display angles (Type-A style). */
+function dirToHV(x, yR, z) { const r = Math.hypot(x, yR, z); return [Math.atan2(yR, x) / DEG, Math.asin(z / r) / DEG]; }
+function hvToDir(Hdeg, Vdeg) { return [Math.cos(Vdeg * DEG) * Math.cos(Hdeg * DEG), Math.cos(Vdeg * DEG) * Math.sin(Hdeg * DEG), Math.sin(Vdeg * DEG)]; }
+
+function deBoerW(terms, La) { // terms: [{E (lx), thDeg}]
+  const Cp00 = 0.003, CpL = 0.04;
+  let S = 0;
+  for (const t of terms) S += t.E / (Cp00 * (1 + Math.sqrt(La / CpL)) * Math.pow(t.thDeg * 60, 0.46));
+  if (S <= 0) return { W: 9, raw: Infinity };
+  const raw = 5 - 2 * Math.log10(S);
+  return { W: Math.max(1, Math.min(9, raw)), raw };
+}
+
+function veilingLum(terms, model, age, p) {
+  let Lv = 0;
+  for (const { E, thDeg: t } of terms) {
+    if (model === 'sh') Lv += 10 * E / (t * t);
+    else Lv += E * (10 / (t ** 3) + (5 / (t * t) + 0.1 * p / t) * (1 + (age / 62.5) ** 4) + 0.0025 * p);
+  }
+  return Lv;
+}
+function TIpct(Lv, La) { return 65 * Lv / Math.pow(La, 0.8); }
+
+/* Model validity ranges for glare angle θ (degrees). */
+const LV_RANGE = { cie: [0.1, 100], sh: [1, 30] };
+const DEBOER_RANGE = [0.1, 15]; // approx. range of the Schmidt-Clausen & Bindels experiments (≈ 6 arcmin … 15°)
+
+/* Input check. Returns a list of human-readable problems (empty = OK). */
+function checkCfg(c) {
+  const e = [], num = (k, lbl) => { if (!isFinite(c[k])) e.push(lbl + ' is not a number'); };
+  num('hLamp', 'Lamp height'); num('spacing', 'Lamp spacing'); num('lat', 'Lateral offset'); num('La', 'Adaptation luminance');
+  num('dmin', 'Distance from'); num('dmax', 'Distance to'); num('dstep', 'Step'); num('age', 'Age'); num('tau', 'Windscreen transmission');
+  if (c.hLamp <= 0) e.push('Lamp height must be > 0');
+  if (c.spacing < 0) e.push('Lamp spacing cannot be negative');
+  if (c.dmin <= 0 || c.dmax <= c.dmin) e.push('Distance range must satisfy 0 < from < to');
+  if (c.dstep <= 0) e.push('Step must be > 0');
+  if (c.La <= 0) e.push('Adaptation luminance must be > 0');
+  if (c.La > 5) e.push('TI formula is defined for La ≤ 5 cd/m²');
+  if (c.tau <= 0 || c.tau > 1) e.push('Windscreen transmission must be in (0, 1]');
+  if (!c.eyes.length) e.push('Enter at least one eye height');
+  return e;
+}
+
+/* Full evaluation.
+   cfg: {iesL, iesR, hdirRight, angleSys, cForward, aimV, aimH, hLamp, spacing, rht, lat, eyes[], dmin, dmax, dstep,
+         La, age, pig, lvModel, thMin, tau, eyePlane: 'lamp'|'los'} */
+function evaluate(cfg) {
+  const s = cfg.spacing / 2, side = cfg.rht ? 1 : -1, tau = cfg.tau ?? 1;
+  const opt = { hdirRight: cfg.hdirRight, angleSys: cfg.angleSys || 'auto', cForward: cfg.cForward || 0 };
+  const lamps = [{ name: 'L', y: +s, ies: cfg.iesL }, { name: 'R', y: -s, ies: cfg.iesR || cfg.iesL }];
+  const n = Math.min(5000, Math.floor((cfg.dmax - cfg.dmin) / cfg.dstep + 1e-9) + 1); // index-based: no float drift
+  const lvR = LV_RANGE[cfg.lvModel] || LV_RANGE.cie;
+  const out = [];
+  for (const he of cfg.eyes) {
+    const rows = [];
+    for (let k = 0; k < n; k++) {
+      const d = +(cfg.dmin + k * cfg.dstep).toFixed(6);
+      const yEye = side * cfg.lat;
+      const terms = []; let Etot = 0; const per = {}; let valid = true, deBoerValid = true;
+      for (const lp of lamps) {
+        const dx = d, dy = yEye - lp.y, dz = he - cfg.hLamp;
+        const r = Math.hypot(dx, dy, dz);
+        const [lx, lyR, lz] = toLampFrame(dx, dy, dz, cfg.aimV, cfg.aimH);
+        const I = intensityDir(lp.ies, lx, lyR, lz, opt);
+        const th0 = Math.acos(dx / r) / DEG;               // true glare angle to line of sight
+        const th = Math.max(cfg.thMin, th0);
+        const E = tau * I / (r * r) * (cfg.eyePlane === 'los' ? Math.cos(th0 * DEG) : 1);
+        const [Hd, Vd] = dirToHV(lx, lyR, lz);
+        if (th < lvR[0] || th > lvR[1]) valid = false;
+        if (th < DEBOER_RANGE[0] || th > DEBOER_RANGE[1]) deBoerValid = false;
+        per[lp.name] = { I, E, th, H: Hd, V: Vd };
+        terms.push({ E, thDeg: th }); Etot += E;
+      }
+      const w = deBoerW(terms, cfg.La);
+      const Lv = veilingLum(terms, cfg.lvModel, cfg.age, cfg.pig);
+      rows.push({ d, E: Etot, W: w.W, Wraw: w.raw, Lv, TI: TIpct(Lv, cfg.La), L: per.L, R: per.R, lvValid: valid, wValid: deBoerValid });
+    }
+    out.push({ eye: he, rows });
+  }
+  return out;
+}
+
+/* Synthetic demo low beam, Type A grid, H+ = right, cut-off at 0.57° D left / 15° rise right. */
+function demoIES(lht = false) {
+  const H = [], V = [];
+  for (let h = -40; h <= 40 + 1e-9; h += 0.5) H.push(+h.toFixed(2));
+  for (let v = -15; v <= 10 + 1e-9; v += 0.1) V.push(+v.toFixed(2));
+  const smooth = t => t <= 0 ? 0 : t >= 1 ? 1 : t * t * (3 - 2 * t);
+  const cd = H.map(h0 => V.map(v => {
+    const h = lht ? -h0 : h0; // LHT beam = mirrored RHT beam
+    const hot = 22000 * Math.exp(-((h - 1.5) ** 2) / (2 * 4 ** 2) - ((v + 1.6) ** 2) / (2 * 1.2 ** 2));
+    const wide = 4500 * Math.exp(-(h * h) / (2 * 18 ** 2) - ((v + 3.5) ** 2) / (2 * 3 ** 2));
+    const fore = 1500 * Math.exp(-(h * h) / (2 * 30 ** 2)) * (v < -4 ? 1 : Math.exp(-((v + 4) ** 2) / 2));
+    let cut = -0.57; if (h > 0) cut = Math.min(-0.57 + Math.tan(15 * DEG) * h, 1.0);
+    const below = 1 - smooth((v - cut + 0.15) / 0.3); // transition over ~0.3°
+    const glareFloor = 250 * Math.exp(-Math.max(0, v - cut) / 6) * Math.exp(-(h * h) / (2 * 25 ** 2));
+    return (hot + wide + fore) * below + glareFloor;
+  }));
+  let peak = 0; for (const r of cd) for (const v of r) peak = Math.max(peak, v);
+  return { type: 'A', H, V, cd, nV: V.length, nH: H.length, peak, keywords: ['[TEST] GLEn synthetic low beam'], demo: true, lht };
+}
+
+if (typeof module !== 'undefined') module.exports = { checkCfg, LV_RANGE, parseIES, intensityDir, toLampFrame, deBoerW, veilingLum, TIpct, evaluate, demoIES, lookupRaw, dirToHV, hvToDir };
+</script>
+
+<script>
+/* ================= UI ================= */
+const $ = id => document.getElementById(id);
+const state = { iesL: demoIES(), iesR: null, result: null };
+const SERIES = ['--series-1', '--series-2', '--series-3'];
+const css = v => getComputedStyle(document.querySelector('.viz-root')).getPropertyValue(v).trim();
+const fmt = (x, n = 3) => !isFinite(x) ? '—' : Math.abs(x) >= 1000 ? x.toFixed(0) : Math.abs(x) >= 1 ? x.toPrecision(Math.max(n, 3)) : x.toPrecision(n);
+
+const num = id => { const v = $(id).value.trim(); return v === '' ? NaN : +v; };
+function readCfg() {
+  const eyes = $('eyes').value.split(/[,;\s]+/).filter(Boolean).map(Number).filter(x => x > 0).slice(0, 3);
+  return {
+    iesL: state.iesL, iesR: state.iesR, hdirRight: $('hdir').value === 'right',
+    angleSys: $('angSys').value, cForward: +$('cFwd').value,
+    aimV: num('aimV') || 0, aimH: num('aimH') || 0,
+    hLamp: num('hLamp'), spacing: num('spacing'), rht: $('traffic').value === 'RHT',
+    lat: num('lat'), eyes,
+    dmin: num('dmin'), dmax: num('dmax'), dstep: num('dstep'),
+    La: num('La'), age: num('age'), pig: +$('pig').value, lvModel: $('lvModel').value,
+    thMin: Math.max(0.01, num('thMin') || 0.1), tau: num('tau'), eyePlane: $('eyePlane').value,
+    limE: num('limE'), limW: num('limW'), limTI: num('limTI')
+  };
+}
+
+const iopt = c => ({ hdirRight: c.hdirRight, angleSys: c.angleSys, cForward: c.cForward });
+function iesInfo() {
+  const f = (ies, tag) => ies ? `${tag}: Type ${ies.type}, ${ies.nH} H × ${ies.nV} V, H ${ies.H[0]}…${ies.H[ies.nH - 1]}°, V ${ies.V[0]}…${ies.V[ies.nV - 1]}°, peak ${Math.round(ies.peak)} cd` : '';
+  $('iesInfo').innerHTML = [f(state.iesL, 'Left'), f(state.iesR, 'Right')].filter(Boolean).join('<br>');
+  const w = [];
+  for (const ies of [state.iesL, state.iesR].filter(Boolean)) {
+    if ((($('angSys').value === 'auto') ? ies.type : $('angSys').value) === 'C') w.push('Type C: γ = 90° is taken as horizontal. Pick the C-plane that points straight ahead and check that the trace map looks right.');
+    if (ies.type === '?') w.push('Unknown photometric type, so the file is treated as Type A.');
+  }
+  const sys = $('angSys').value === 'auto' ? state.iesL.type : $('angSys').value;
+  $('cfwdRow').style.display = sys === 'C' ? '' : 'none';
+  $('iesWarn').style.display = w.length ? 'block' : 'none'; $('iesWarn').innerHTML = w.join('<br>');
+}
+
+function loadFile(input, which) {
+  const file = input.files[0]; if (!file) return;
+  const rd = new FileReader();
+  rd.onload = () => {
+    try {
+      const ies = parseIES(rd.result);
+      state[which] = ies; $(which === 'iesL' ? 'nameL' : 'nameR').textContent = file.name;
+      run();
+    } catch (e) { alertBox(file.name + ': ' + e.message); }
+  };
+  rd.readAsText(file);
+  input.value = '';
+}
+function alertBox(msg) { $('iesWarn').style.display = 'block'; $('iesWarn').textContent = msg; }
+
+function worst(rows) {
+  let e = rows[0], w = rows[0], t = rows[0];
+  for (const r of rows) { if (r.E > e.E) e = r; if (r.W < w.W) w = r; if (r.TI > t.TI) t = r; }
+  return { e, w, t };
+}
+function chip(ok) {
+  const c = ok ? css('--good') : css('--critical');
+  return `<span class="chip"><span class="dot" style="background:${c}"></span>${ok ? '✓ Pass' : '✕ Fail'}</span>`;
+}
+
+function renderTiles(res, cfg) {
+  $('tiles').innerHTML = res.map((s, k) => {
+    const { e, w, t } = worst(s.rows);
+    return `<div class="tile"><div class="t-head"><span class="sw" style="background:${css(SERIES[k])}"></span>Eye height ${s.eye} m</div>
+      <div class="row"><span class="k">Max E<sub>eye</sub></span><span class="v">${fmt(e.E)} lx @ ${e.d} m${chip(e.E <= cfg.limE)}</span></div>
+      <div class="row"><span class="k">Min de Boer W</span><span class="v">${w.W.toFixed(2)} @ ${w.d} m${chip(w.W >= cfg.limW)}</span></div>
+      <div class="row"><span class="k">Max TI</span><span class="v">${fmt(t.TI)} % @ ${t.d} m${chip(t.TI <= cfg.limTI)}</span></div></div>`;
+  }).join('');
+}
+
+/* ---------- canvas line chart with crosshair tooltip ---------- */
+function setupCanvas(cv) {
+  const dpr = window.devicePixelRatio || 1, r = cv.getBoundingClientRect();
+  cv.width = Math.round(r.width * dpr); cv.height = Math.round(r.height * dpr);
+  const ctx = cv.getContext('2d'); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  return { ctx, W: r.width, H: r.height };
+}
+function niceTicks(min, max, n = 5) {
+  const span = max - min || 1, step0 = span / n, mag = 10 ** Math.floor(Math.log10(step0));
+  const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= step0);
+  const out = []; for (let v = Math.ceil(min / step) * step; v <= max + 1e-9; v += step) out.push(+v.toFixed(10));
+  return out;
+}
+function lineChart(id, res, key, opt) {
+  const cv = $('c' + id), tt = $('tt' + id), { ctx, W, H } = setupCanvas(cv);
+  const m = { l: 52, r: 14, t: 10, b: 34 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const xs = res[0].rows.map(r => r.d), x0 = xs[0], x1 = xs[xs.length - 1];
+  let vals = res.flatMap(s => s.rows.map(r => r[key])).filter(isFinite);
+  if (opt.limit != null) vals.push(opt.limit);
+  let y0, y1, ticks;
+  if (opt.log) {
+    const pos = vals.filter(v => v > 0); let lo = pos.length ? Math.min(...pos) : 1e-3, hi = pos.length ? Math.max(...pos) : 1;
+    y0 = Math.floor(Math.log10(lo)); y1 = Math.ceil(Math.log10(hi)); if (y1 === y0) y1++;
+    ticks = []; for (let k = y0; k <= y1; k++) ticks.push(k);
+  } else if (opt.fixed) { [y0, y1] = opt.fixed; ticks = niceTicks(y0, y1, 8); }
+  else { y0 = 0; y1 = Math.max(...vals) * 1.08 || 1; ticks = niceTicks(y0, y1); y1 = Math.max(y1, ticks[ticks.length - 1]); }
+  const X = d => m.l + (d - x0) / (x1 - x0) * pw;
+  const Y = v => { const t = opt.log ? Math.log10(Math.max(v, 10 ** y0)) : v; return m.t + ph - (t - y0) / (y1 - y0) * ph; };
+  const draw = hoverI => {
+    ctx.clearRect(0, 0, W, H);
+    ctx.font = '11px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1; ctx.fillStyle = css('--text-muted');
+    for (const t of ticks) {
+      const y = opt.log ? m.t + ph - (t - y0) / (y1 - y0) * ph : Y(t);
+      ctx.beginPath(); ctx.moveTo(m.l, Math.round(y) + .5); ctx.lineTo(m.l + pw, Math.round(y) + .5); ctx.stroke();
+      ctx.textAlign = 'right'; ctx.fillText(opt.log ? (10 ** t >= 1 ? String(10 ** t) : (10 ** t).toPrecision(1)) : String(t), m.l - 6, y);
+    }
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (const t of niceTicks(x0, x1, 6)) ctx.fillText(t, X(t), m.t + ph + 6);
+    ctx.fillText('Distance to oncoming driver (m)', m.l + pw / 2, m.t + ph + 20);
+    if (opt.limit != null) {
+      const y = Y(opt.limit); ctx.save(); ctx.setLineDash([5, 4]); ctx.strokeStyle = css('--critical'); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.moveTo(m.l, y); ctx.lineTo(m.l + pw, y); ctx.stroke(); ctx.restore();
+      ctx.fillStyle = css('--text-secondary'); ctx.textAlign = 'right'; ctx.textBaseline = 'bottom';
+      ctx.fillText('limit ' + opt.limit + (opt.unit ? ' ' + opt.unit : ''), m.l + pw - 4, y - 3);
+    }
+    res.forEach((s, k) => {
+      ctx.strokeStyle = css(SERIES[k]); ctx.lineWidth = 2; ctx.lineJoin = 'round'; ctx.beginPath();
+      s.rows.forEach((r, i) => { const x = X(r.d), y = Y(r[key]); i ? ctx.lineTo(x, y) : ctx.moveTo(x, y); }); ctx.stroke();
+    });
+    if (hoverI != null) {
+      const x = X(xs[hoverI]); ctx.strokeStyle = css('--text-muted'); ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(x, m.t); ctx.lineTo(x, m.t + ph); ctx.stroke();
+      res.forEach((s, k) => {
+        const y = Y(s.rows[hoverI][key]);
+        ctx.beginPath(); ctx.arc(x, y, 4.5, 0, 7); ctx.fillStyle = css('--surface-1'); ctx.fill();
+        ctx.beginPath(); ctx.arc(x, y, 3.5, 0, 7); ctx.fillStyle = css(SERIES[k]); ctx.fill();
+      });
+    }
+  };
+  draw(null);
+  cv.onpointermove = cv.onpointerdown = ev => {
+    const b = cv.getBoundingClientRect(), px = ev.clientX - b.left;
+    if (px < m.l || px > m.l + pw) { cv.onpointerleave(); return; }
+    const d = x0 + (px - m.l) / pw * (x1 - x0);
+    let i = 0, best = 1e9; xs.forEach((x, j) => { if (Math.abs(x - d) < best) { best = Math.abs(x - d); i = j; } });
+    draw(i);
+    tt.innerHTML = `<b>${xs[i]} m</b><br>` + res.map((s, k) => `<span class="sw" style="background:${css(SERIES[k])};width:8px;height:8px"></span> ${s.eye} m eye: ${opt.f(s.rows[i])}`).join('<br>');
+    tt.style.display = 'block';
+    const cb = cv.parentElement.getBoundingClientRect();
+    let left = b.left - cb.left + X(xs[i]) + 12; if (left + tt.offsetWidth > cb.width - 6) left -= tt.offsetWidth + 24;
+    tt.style.left = left + 'px'; tt.style.top = (b.top - cb.top + 14) + 'px';
+  };
+  cv.onpointerleave = () => { draw(null); tt.style.display = 'none'; };
+  $('lg' + id).innerHTML = res.map((s, k) => `<span><i style="background:${css(SERIES[k])}"></i>Eye ${s.eye} m</span>`).join('') +
+    (opt.limit != null ? `<span><i style="background:${css('--critical')}"></i>Limit</span>` : '');
+}
+
+/* ---------- isocandela heat map with eye trace ---------- */
+const RAMP = ['#cde2fb', '#9ec5f4', '#6da7ec', '#3987e5', '#256abf', '#184f95', '#0d366b'];
+function rampColor(t) { t = Math.max(0, Math.min(1, t)); const x = t * (RAMP.length - 1), i = Math.floor(x), f = x - i;
+  const a = RAMP[i], b = RAMP[Math.min(i + 1, RAMP.length - 1)], p = (h, k) => parseInt(h.substr(1 + 2 * k, 2), 16);
+  return [0, 1, 2].map(k => Math.round(p(a, k) * (1 - f) + p(b, k) * f)); }
+function mapChart(res, cfg) {
+  const cv = $('cM'), tt = $('ttM'), { ctx, W, H } = setupCanvas(cv);
+  const m = { l: 40, r: 84, t: 10, b: 34 }, pw = W - m.l - m.r, ph = H - m.t - m.b;
+  const allHV = res.flatMap(s => s.rows.map(r => r.L));
+  const hAbs = Math.max(15, ...allHV.map(p => Math.abs(p.H)).filter(isFinite));
+  const vAbs = Math.max(5, ...allHV.map(p => Math.abs(p.V)).filter(isFinite));
+  const Hr = [-Math.min(30, Math.ceil(hAbs / 5) * 5), Math.min(30, Math.ceil(hAbs / 5) * 5)];
+  const Vr = [-Math.min(10, Math.ceil(vAbs + 0.5)), Math.min(10, Math.ceil(vAbs + 0.5))];
+  const X = h => m.l + (h - Hr[0]) / (Hr[1] - Hr[0]) * pw, Y = v => m.t + ph - (v - Vr[0]) / (Vr[1] - Vr[0]) * ph;
+  const ies = cfg.iesL, iAt = (h, v) => { const [x, y, z] = hvToDir(h, v); return intensityDir(ies, x, y, z, iopt(cfg)); };
+  const lmin = 1, lmax = Math.log10(Math.max(ies.peak, 100));
+  const img = ctx.createImageData(Math.max(1, Math.floor(pw)), Math.max(1, Math.floor(ph)));
+  const step = 2, surf = css('--surface-1');
+  for (let py = 0; py < img.height; py += step) for (let px = 0; px < img.width; px += step) {
+    const h = Hr[0] + px / img.width * (Hr[1] - Hr[0]), v = Vr[1] - py / img.height * (Vr[1] - Vr[0]);
+    const I = iAt(h, v), t = (Math.log10(Math.max(I, 1)) - lmin) / (lmax - lmin);
+    const [r, g, b] = I < 10 ? [200, 200, 196] : rampColor(t);
+    for (let yy = py; yy < Math.min(py + step, img.height); yy++) for (let xx = px; xx < Math.min(px + step, img.width); xx++) {
+      const o = (yy * img.width + xx) * 4; img.data[o] = r; img.data[o + 1] = g; img.data[o + 2] = b; img.data[o + 3] = 255; }
+  }
+  // offscreen to respect DPR transform
+  const off = document.createElement('canvas'); off.width = img.width; off.height = img.height; off.getContext('2d').putImageData(img, 0, 0);
+  const render = hover => {
+    ctx.clearRect(0, 0, W, H); ctx.imageSmoothingEnabled = true; ctx.drawImage(off, m.l, m.t, pw, ph);
+    ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.moveTo(X(0), m.t); ctx.lineTo(X(0), m.t + ph); ctx.moveTo(m.l, Y(0)); ctx.lineTo(m.l + pw, Y(0)); ctx.stroke();
+    ctx.fillStyle = css('--text-muted'); ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    for (let h = Hr[0]; h <= Hr[1]; h += Hr[1] > 15 ? 10 : 5) ctx.fillText(h === 0 ? '0' : (h < 0 ? Math.abs(h) + 'L' : h + 'R'), X(h), m.t + ph + 6);
+    ctx.fillText('Horizontal angle (°)', m.l + pw / 2, m.t + ph + 20);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (let v = -Math.floor(Vr[1] / 2) * 2; v <= Vr[1]; v += 2) ctx.fillText(v === 0 ? '0' : (v < 0 ? Math.abs(v) + 'D' : v + 'U'), m.l - 6, Y(v));
+    // colour scale
+    const sx = m.l + pw + 18, sw = 10;
+    for (let i = 0; i < ph; i++) { const [r, g, b] = rampColor(1 - i / ph); ctx.fillStyle = `rgb(${r},${g},${b})`; ctx.fillRect(sx, m.t + i, sw, 1.5); }
+    ctx.fillStyle = css('--text-muted'); ctx.textAlign = 'left';
+    for (let k = Math.ceil(lmin); k <= Math.floor(lmax); k++) ctx.fillText(k >= 3 ? (10 ** (k - 3)) + 'k' : String(10 ** k), sx + sw + 4, m.t + ph - (k - lmin) / (lmax - lmin) * ph);
+    ctx.save(); ctx.translate(sx + sw + 44, m.t + ph / 2); ctx.rotate(-Math.PI / 2); ctx.textAlign = 'center'; ctx.fillText('cd (log)', 0, 0); ctx.restore();
+    // traces
+    res.forEach((s, k) => {
+      const col = css(SERIES[k]); const pts = s.rows.map(r => [X(r.L.H), Y(r.L.V), r]).filter(p => p[0] >= m.l && p[0] <= m.l + pw && p[1] >= m.t && p[1] <= m.t + ph);
+      ctx.strokeStyle = '#fff'; ctx.lineWidth = 4; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
+      ctx.strokeStyle = col; ctx.lineWidth = 2; ctx.beginPath(); pts.forEach((p, i) => i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1])); ctx.stroke();
+      for (const p of pts) if (Math.abs(p[2].d % 10) < 1e-6 || p === pts[0]) {
+        ctx.beginPath(); ctx.arc(p[0], p[1], p === pts[0] ? 5 : 3.5, 0, 7); ctx.fillStyle = '#fff'; ctx.fill();
+        ctx.beginPath(); ctx.arc(p[0], p[1], p === pts[0] ? 3.5 : 2.5, 0, 7); ctx.fillStyle = col; ctx.fill();
+      }
+    });
+    if (hover) { ctx.strokeStyle = '#fff'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hover[0], hover[1], 6, 0, 7); ctx.stroke(); }
+  };
+  render(null);
+  cv.onpointermove = cv.onpointerdown = ev => {
+    const b = cv.getBoundingClientRect(), px = ev.clientX - b.left, py = ev.clientY - b.top;
+    if (px < m.l || px > m.l + pw || py < m.t || py > m.t + ph) { cv.onpointerleave(); return; }
+    const h = Hr[0] + (px - m.l) / pw * (Hr[1] - Hr[0]), v = Vr[1] - (py - m.t) / ph * (Vr[1] - Vr[0]);
+    let near = null, nd = 12;
+    res.forEach((s, k) => s.rows.forEach(r => { const dd = Math.hypot(X(r.L.H) - px, Y(r.L.V) - py); if (dd < nd) { nd = dd; near = { r, k, s }; } }));
+    render(near ? [X(near.r.L.H), Y(near.r.L.V)] : null);
+    tt.innerHTML = near
+      ? `<b>Eye ${near.s.eye} m @ ${near.r.d} m</b><br>H ${near.r.L.H.toFixed(2)}°, V ${near.r.L.V.toFixed(2)}°<br>I = ${fmt(near.r.L.I)} cd`
+      : `H ${Math.abs(h).toFixed(2)}°${h < 0 ? 'L' : 'R'}, V ${Math.abs(v).toFixed(2)}°${v < 0 ? 'D' : 'U'}<br>I = ${fmt(iAt(h, v))} cd`;
+    tt.style.display = 'block';
+    const cb = cv.parentElement.getBoundingClientRect();
+    let left = b.left - cb.left + px + 12; if (left + tt.offsetWidth > cb.width - 6) left -= tt.offsetWidth + 24;
+    tt.style.left = left + 'px'; tt.style.top = (b.top - cb.top + py + 12) + 'px';
+  };
+  cv.onpointerleave = () => { render(null); tt.style.display = 'none'; };
+  $('lgM').innerHTML = res.map((s, k) => `<span><i style="background:${css(SERIES[k])}"></i>Eye ${s.eye} m</span>`).join('');
+}
+
+function renderTable(res) {
+  const head = '<tr><th>Eye h (m)</th><th>d (m)</th><th>I<sub>L</sub> (cd)</th><th>I<sub>R</sub> (cd)</th><th>H<sub>L</sub> (°)</th><th>V<sub>L</sub> (°)</th><th>θ<sub>L</sub> (°)</th><th>E (lx)</th><th>W</th><th>L<sub>v</sub> (cd/m²)</th><th>TI (%)</th><th>Model range</th></tr>';
+  const body = res.flatMap(s => s.rows.map(r => `<tr><td>${s.eye}</td><td>${r.d}</td><td>${r.L.I.toFixed(1)}</td><td>${r.R.I.toFixed(1)}</td><td>${r.L.H.toFixed(2)}</td><td>${r.L.V.toFixed(2)}</td><td>${r.L.th.toFixed(2)}</td><td>${r.E.toFixed(4)}</td><td>${r.W.toFixed(2)}</td><td>${r.Lv.toFixed(4)}</td><td>${r.TI.toFixed(2)}</td><td>${r.lvValid && r.wValid ? 'ok' : (r.wValid ? '' : 'W ') + (r.lvValid ? '' : 'Lv')}</td></tr>`)).join('');
+  $('tbl').innerHTML = `<table>${head}${body}</table>`;
+}
+
+function toCSV(res, cfg) {
+  const meta = [`# GLEn v0.2 export`, `# left IES: ${$('nameL').textContent}`, `# right IES: ${state.iesR ? $('nameR').textContent : 'same as left'}`,
+    `# aimV=${cfg.aimV} aimH=${cfg.aimH} hLamp=${cfg.hLamp} spacing=${cfg.spacing} traffic=${cfg.rht ? 'RHT' : 'LHT'} lateral=${cfg.lat}`,
+    `# La=${cfg.La} age=${cfg.age} p=${cfg.pig} Lv model=${cfg.lvModel} thetaMin=${cfg.thMin} tau=${cfg.tau} eyePlane=${cfg.eyePlane} angleSys=${cfg.angleSys} cForward=${cfg.cForward} H+=${cfg.hdirRight ? 'right' : 'left'}`];
+  const hdr = 'eye_h_m,d_m,I_L_cd,I_R_cd,H_L_deg,V_L_deg,theta_L_deg,H_R_deg,V_R_deg,theta_R_deg,E_lx,deBoer_W,deBoer_W_unclipped,Lv_cdm2,TI_pct,deBoer_in_range,Lv_in_range';
+  const rows = res.flatMap(s => s.rows.map(r => [s.eye, r.d, r.L.I, r.R.I, r.L.H, r.L.V, r.L.th, r.R.H, r.R.V, r.R.th, r.E, r.W, r.Wraw, r.Lv, r.TI, r.wValid ? 1 : 0, r.lvValid ? 1 : 0].map(v => typeof v === 'number' ? +v.toPrecision(6) : v).join(',')));
+  return [...meta, hdr, ...rows].join('\n');
+}
+
+function b50Info(cfg) {
+  // B50L-type point: 0.57° up, 3.43° toward oncoming side (left for RHT)
+  const hR = cfg.rht ? -3.43 : 3.43;
+  const [x, y, z] = hvToDir(hR, 0.57);
+  const I = intensityDir(cfg.iesL, x, y, z, iopt(cfg));
+  $('b50').textContent = `Left lamp at B50${cfg.rht ? 'L' : 'R'} (0.57°U, 3.43°${cfg.rht ? 'L' : 'R'}, lamp frame): ${fmt(I)} cd`;
+}
+
+function validityNote(res, key) { // distance span (all eye heights) where the model is out of range
+  let lo = Infinity, hi = -Infinity;
+  for (const sr of res) for (const r of sr.rows) if (!r[key]) { lo = Math.min(lo, r.d); hi = Math.max(hi, r.d); }
+  return isFinite(lo) ? (lo === hi ? `at ${lo} m` : `between ${lo} and ${hi} m`) : null;
+}
+
+function run() {
+  const cfg = readCfg();
+  if (state.iesL.demo && state.iesL.lht !== !cfg.rht) { state.iesL = demoIES(!cfg.rht); cfg.iesL = state.iesL; }
+  iesInfo();
+  const errs = checkCfg(cfg);
+  const hard = errs.filter(e => !/defined for La/.test(e));
+  $('cfgWarn').style.display = errs.length ? 'block' : 'none';
+  $('cfgWarn').textContent = errs.length ? '⚠ ' + errs.join(' · ') : '';
+  if (hard.length) return; // keep last good plots on screen
+  const res = evaluate(cfg); state.result = res; state.cfg = cfg;
+  renderTiles(res, cfg);
+  lineChart('E', res, 'E', { log: true, limit: cfg.limE, unit: 'lx', f: r => fmt(r.E) + ' lx' });
+  lineChart('W', res, 'W', { fixed: [1, 9], limit: cfg.limW, f: r => r.W.toFixed(2) + (r.wValid ? '' : ' (θ out of range)') });
+  lineChart('T', res, 'TI', { limit: cfg.limTI, unit: '%', f: r => fmt(r.TI) + ' %' + (r.lvValid ? '' : ' (θ out of range)') });
+  const lr = LV_RANGE[cfg.lvModel], fl = validityNote(res, 'lvValid'), fw = validityNote(res, 'wValid');
+  $('tiNote').textContent = fl ? `Glare angle (to at least one lamp) is outside the ${cfg.lvModel === 'sh' ? 'Stiles–Holladay' : 'CIE 146'} range (${lr[0]}–${lr[1]}°) ${fl}. Treat those values as indicative.` : '';
+  $('wNote').textContent = fw ? `Glare angle (to at least one lamp) is outside the de Boer data range (≈0.1–15°) ${fw}.` : '';
+  mapChart(res, cfg); b50Info(cfg);
+  if ($('tblCard').style.display !== 'none') renderTable(res);
+}
+
+document.querySelectorAll('aside input:not([type=file]), aside select').forEach(el => el.addEventListener('input', () => { clearTimeout(run.t); run.t = setTimeout(run, 150); }));
+$('fileL').addEventListener('change', e => loadFile(e.target, 'iesL'));
+$('fileR').addEventListener('change', e => loadFile(e.target, 'iesR'));
+$('clrR').onclick = () => { state.iesR = null; $('nameR').textContent = '—'; run(); };
+let dl = null; // artifact viewer download capability (null on GitHub Pages / plain file)
+try { if (window.claude && window.claude.use) window.claude.use('downloads').then(x => { dl = x; }).catch(() => {}); } catch (e) {}
+$('csvBtn').onclick = async () => {
+  if (!state.result) return;
+  const data = toCSV(state.result, state.cfg);
+  if (dl) { try { await dl.save({ filename: 'GLEn_results.csv', data }); } catch (e) {} return; }
+  const blob = new Blob([data], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'GLEn_results.csv'; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+};
+$('copyBtn').onclick = async () => {
+  try { await navigator.clipboard.writeText(toCSV(state.result, state.cfg)); $('copyBtn').textContent = 'Copied ✓'; }
+  catch (e) { $('copyBtn').textContent = 'Copy blocked'; }
+  setTimeout(() => $('copyBtn').textContent = 'Copy CSV', 1800);
+};
+$('tblBtn').onclick = () => {
+  const show = $('tblCard').style.display === 'none'; $('tblCard').style.display = show ? 'block' : 'none';
+  $('tblBtn').textContent = show ? 'Hide data table' : 'Show data table'; if (show) renderTable(state.result);
+};
+$('themeBtn').onclick = () => {
+  const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+  r.dataset.theme = dark ? 'light' : 'dark'; run();
+};
+window.addEventListener('resize', () => { clearTimeout(run.r); run.r = setTimeout(run, 120); });
+run();
+</script>
+</body>
+</html>
