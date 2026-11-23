@@ -4,168 +4,347 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>GLEn — Headlamp Glare Evaluator</title>
+<meta name="description" content="GLEn: oncoming-driver glare from headlamp IES files — eye illuminance, de Boer discomfort rating and threshold increment versus distance.">
+<meta name="theme-color" content="#0a0f2c">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@300;400;500;600&family=IBM+Plex+Sans+Condensed:wght@500;600&display=swap" rel="stylesheet">
+<script>
+  /* Same theme key as the portfolio page, so the light/dark choice carries across. Applied before first paint. */
+  try { var t = localStorage.getItem('theme'); if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t); } catch (e) {}
+</script>
 <style>
-.viz-root{
+/* Carbon tokens, matching jalibakthermk.github.io: grey page, white layers, 1px rules, square corners.
+   The older names (--surface-1, --grid, --series-n …) are kept because the chart code reads them. */
+:root{
+  --cds-background:#f2f4f8; --cds-layer-01:#ffffff; --cds-layer-02:#e8ebf1; --cds-layer-hover-01:#f7f9fc;
+  --cds-text-primary:#161616; --cds-text-secondary:#525a66; --cds-text-helper:#6f7682;
+  --cds-border-subtle:#d5d9e0; --cds-border-strong:#8d8d8d;
+  --cds-button-primary:#0f62fe; --cds-button-primary-hover:#0353e9; --cds-button-primary-active:#002d9c;
+  --cds-link-primary:#0f62fe; --cds-focus:#0f62fe;
+  --cds-support-warning:#8e6a00; --cds-support-warning-bg:#fcf4d6;
+  --cds-ok-bg:#defbe6; --cds-ok-text:#0e6027; --cds-bad-bg:#fff1f1; --cds-bad-text:#a2191f;
+  --cds-shell:#0a0f2c; --cds-shell-text:#f2f4f8; --cds-cut:#d02670;
+  --font-display:"IBM Plex Sans Condensed","IBM Plex Sans","Arial Narrow",sans-serif;
+  --font-body:"IBM Plex Sans","Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  --font-mono:"IBM Plex Mono",ui-monospace,"SFMono-Regular",Consolas,monospace;
+
+  --page:var(--cds-background); --surface-1:var(--cds-layer-01); --surface-2:var(--cds-layer-02);
+  --text-primary:var(--cds-text-primary); --text-secondary:var(--cds-text-secondary); --text-muted:var(--cds-text-helper);
+  --grid:#e4e7ec; --border:var(--cds-border-subtle);
+  --series-1:#0f62fe; --series-2:#009d9a; --series-3:#8a3ffc; --accent:#0f62fe;
+  --good:#24a148; --warning:#f1c21b; --critical:#da1e28;
   color-scheme:light;
-  --page:#f4f4f1; --surface-1:#fcfcfb; --surface-2:#f0efec;
-  --text-primary:#0b0b0b; --text-secondary:#52514e; --text-muted:#7a7974;
-  --grid:#e1e0d9; --border:rgba(11,11,11,0.12);
-  --series-1:#2a78d6; --series-2:#eb6834; --series-3:#1baf7a;
-  --accent:#2a78d6;
-  --good:#0ca30c; --warning:#fab219; --critical:#d03b3b;
 }
 @media (prefers-color-scheme: dark){
-  :root:where(:not([data-theme="light"])) .viz-root{
+  :root:not([data-theme="light"]){
+    --cds-background:#121417; --cds-layer-01:#1d2025; --cds-layer-02:#272b31; --cds-layer-hover-01:#23272d;
+    --cds-text-primary:#f2f4f8; --cds-text-secondary:#b4bac4; --cds-text-helper:#8d939d;
+    --cds-border-subtle:#363b43; --cds-border-strong:#6f6f6f; --cds-link-primary:#78a9ff; --cds-focus:#ffffff;
+    --cds-support-warning:#f1c21b; --cds-support-warning-bg:#3d3000;
+    --cds-ok-bg:#044317; --cds-ok-text:#6fdc8c; --cds-bad-bg:#520408; --cds-bad-text:#ffb3b8;
+    --cds-shell:#060914; --cds-cut:#ff7eb6;
+    --grid:#2c3037; --series-1:#78a9ff; --series-2:#08bdba; --series-3:#be95ff; --accent:#78a9ff;
+    --good:#42be65; --critical:#fa4d56;
     color-scheme:dark;
-    --page:#121211; --surface-1:#1a1a19; --surface-2:#232322;
-    --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
-    --grid:#2c2c2a; --border:rgba(255,255,255,0.12);
-    --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --accent:#3987e5;
   }
 }
-:root[data-theme="dark"] .viz-root{
+:root[data-theme="dark"]{
+  --cds-background:#121417; --cds-layer-01:#1d2025; --cds-layer-02:#272b31; --cds-layer-hover-01:#23272d;
+  --cds-text-primary:#f2f4f8; --cds-text-secondary:#b4bac4; --cds-text-helper:#8d939d;
+  --cds-border-subtle:#363b43; --cds-border-strong:#6f6f6f; --cds-link-primary:#78a9ff; --cds-focus:#ffffff;
+  --cds-support-warning:#f1c21b; --cds-support-warning-bg:#3d3000;
+  --cds-ok-bg:#044317; --cds-ok-text:#6fdc8c; --cds-bad-bg:#520408; --cds-bad-text:#ffb3b8;
+  --cds-shell:#060914; --cds-cut:#ff7eb6;
+  --grid:#2c3037; --series-1:#78a9ff; --series-2:#08bdba; --series-3:#be95ff; --accent:#78a9ff;
+  --good:#42be65; --critical:#fa4d56;
   color-scheme:dark;
-  --page:#121211; --surface-1:#1a1a19; --surface-2:#232322;
-  --text-primary:#f0efec; --text-secondary:#c3c2b7; --text-muted:#8f8e86;
-  --grid:#2c2c2a; --border:rgba(255,255,255,0.12);
-  --series-1:#3987e5; --series-2:#d95926; --series-3:#199e70; --accent:#3987e5;
 }
+
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
-body{font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-size:14px}
+body{background:var(--cds-background);color:var(--cds-text-primary);font-family:var(--font-body);font-size:14px;line-height:1.43;letter-spacing:.16px;-webkit-font-smoothing:antialiased}
 .viz-root{background:var(--page);color:var(--text-primary);min-height:100vh}
-header{padding:18px 24px 10px;display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
-header h1{margin:0;font-size:22px;letter-spacing:.2px}
-header .sub{color:var(--text-secondary)}
-header .spacer{flex:1}
-button,select,input{font:inherit;color:var(--text-primary)}
-button{background:var(--surface-1);border:1px solid var(--border);border-radius:6px;padding:6px 12px;cursor:pointer}
-button:hover{background:var(--surface-2)}
-button.primary{background:var(--accent);color:#fff;border-color:transparent}
-.layout{display:grid;grid-template-columns:320px 1fr;gap:16px;padding:0 24px 24px}
-@media (max-width:900px){.layout{grid-template-columns:1fr;padding:0 12px 12px}.main{order:-1}header{padding:14px 12px 8px}}
-.panel{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:14px 16px}
-.panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--text-secondary);margin:0 0 10px}
-.panel + .panel{margin-top:12px}
-.field{display:grid;grid-template-columns:1fr 110px;align-items:center;gap:8px;margin:6px 0}
-.field label{color:var(--text-secondary)}
-.field input,.field select{width:100%;padding:5px 7px;border:1px solid var(--border);border-radius:6px;background:var(--surface-2)}
-.hint{color:var(--text-muted);font-size:12px;margin:4px 0 8px;line-height:1.4}
-.file{margin:6px 0 10px}
-.file .fname{font-size:12px;color:var(--text-secondary);margin-top:3px;word-break:break-all}
+:focus-visible{outline:2px solid var(--cds-focus);outline-offset:2px}
+a,button,input,select{transition:background-color .15s ease,border-color .15s ease,color .15s ease}
+.skip{position:absolute;left:16px;top:-64px;z-index:30;background:var(--cds-button-primary);color:#fff;padding:12px 16px;text-decoration:none}
+.skip:focus{top:8px}
+.i{width:16px;height:16px;flex-shrink:0;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.wrap{max-width:1584px;margin:0 auto;padding:0 16px}
+sub{font-size:.75em}
+
+/* ── Shell bar (same as the portfolio) ── */
+.shell{position:sticky;top:0;z-index:20;background:var(--cds-shell);color:var(--cds-shell-text)}
+.shell .wrap{display:flex;align-items:center;justify-content:space-between;height:48px}
+.shell-name{display:flex;align-items:center;gap:12px;font-family:var(--font-display);font-weight:600;font-size:16px;letter-spacing:.01em;color:inherit;text-decoration:none}
+.shell-name img{width:24px;height:24px;display:block}
+.shell-name .crumb{font-family:var(--font-body);font-weight:400;font-size:14px;color:#b4bac4}
+.shell-actions{display:flex;align-items:center}
+.shell-actions a,.shell-actions button{display:inline-flex;align-items:center;gap:8px;height:48px;padding:0 16px;border:0;border-radius:0;background:transparent;color:var(--cds-shell-text);font:inherit;font-size:14px;text-decoration:none;cursor:pointer}
+.shell-actions a:hover,.shell-actions button:hover{background:#2a3050}
+.shell :focus-visible{outline-color:#fff;outline-offset:-2px}
+#themeBtn .moon{display:none}
+:root[data-theme="dark"] #themeBtn .sun{display:none}
+:root[data-theme="dark"] #themeBtn .moon{display:block}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]) #themeBtn .sun{display:none}
+  :root:not([data-theme="light"]) #themeBtn .moon{display:block}
+}
+
+/* ── Title band ── */
+.titleband{position:relative;overflow:hidden;background:var(--cds-layer-01);border-bottom:1px solid var(--cds-border-subtle)}
+.titleband .wrap{position:relative;z-index:1;padding-top:28px;padding-bottom:24px}
+.eyebrow{font-family:var(--font-mono);font-size:12px;letter-spacing:.32px;text-transform:uppercase;color:var(--cds-text-secondary);margin:0 0 10px}
+.titleband h1{margin:0 0 8px;font-weight:300;font-size:clamp(30px,3.4vw,42px);line-height:1.15;display:flex;align-items:baseline;gap:12px;flex-wrap:wrap}
+.titleband h1 b{font-weight:600;font-family:var(--font-display)}
+.ver{font-family:var(--font-mono);font-size:12px;font-weight:400;padding:2px 8px;background:var(--cds-layer-02);color:var(--cds-text-secondary);align-self:center}
+.titleband .sub{margin:0;color:var(--cds-text-secondary);font-size:16px;line-height:1.5;max-width:760px}
+.privacy{display:inline-flex;align-items:center;gap:8px;margin-top:14px;font-size:12.5px;color:var(--cds-text-secondary);border-left:2px solid var(--good);padding-left:8px}
+.motif{position:absolute;right:0;bottom:0;width:min(44%,560px);height:auto;color:var(--cds-button-primary);opacity:.45;pointer-events:none}
+.motif .cut{stroke:var(--cds-cut)}
+@media (max-width:1055px){.motif{display:none}}
+
+/* ── Layout ── */
+.layout{display:grid;grid-template-columns:340px minmax(0,1fr);gap:16px;padding-top:16px;padding-bottom:24px;align-items:start}
+aside{position:sticky;top:64px;max-height:calc(100vh - 80px);overflow:auto;scrollbar-width:thin;display:flex;flex-direction:column;gap:8px}
+@media (max-width:900px){.layout{grid-template-columns:1fr}.main{order:-1}aside{position:static;max-height:none;overflow:visible}}
+
+/* Input panels: collapsible Carbon tiles */
+.panel{background:var(--cds-layer-01);border:1px solid var(--cds-border-subtle)}
+.panel>summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;padding:0 16px;cursor:pointer;user-select:none}
+.panel>summary::-webkit-details-marker{display:none}
+.panel>summary:hover{background:var(--cds-layer-hover-01)}
+.panel>summary:focus-visible{outline-offset:-2px}
+.panel h2{margin:0;font-family:var(--font-display);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--cds-text-secondary)}
+.panel .chev{transition:transform .15s ease;color:var(--cds-text-secondary)}
+.panel[open] .chev{transform:rotate(180deg)}
+.pbody{padding:4px 16px 16px;border-top:1px solid var(--cds-border-subtle)}
+.field{display:grid;grid-template-columns:1fr 140px;align-items:center;gap:10px;margin:10px 0}
+.field label{color:var(--cds-text-secondary);font-size:13px;line-height:1.3}
+.field input,.field select{width:100%;height:32px;padding:0 8px;border:0;border-bottom:1px solid var(--cds-border-strong);border-radius:0;background:var(--cds-layer-02);color:var(--cds-text-primary);font:inherit;font-size:13px}
+.field input[type=number],.field input[type=text]{font-family:var(--font-mono);font-size:12.5px}
+.field input:hover,.field select:hover{background:var(--cds-layer-hover-01)}
+.field input:focus,.field select:focus{outline:2px solid var(--cds-focus);outline-offset:-2px}
+.field.wide{grid-template-columns:1fr}
+.hint{color:var(--text-muted);font-size:12px;margin:4px 0 8px;line-height:1.45}
+
+/* IES drop zones */
+.drop{position:relative;display:flex;flex-direction:column;gap:2px;margin:12px 0 4px;padding:12px;border:1px dashed var(--cds-border-strong);background:var(--cds-layer-01);cursor:pointer}
+.drop:hover,.drop.over{border-color:var(--cds-button-primary);background:var(--cds-layer-hover-01)}
+.drop.over{border-style:solid}
+.drop:focus-within{outline:2px solid var(--cds-focus);outline-offset:-2px}
+.drop input{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.drop .dt{display:flex;align-items:center;gap:8px;font-weight:500;color:var(--cds-text-primary)}
+.drop .dt .i{color:var(--cds-link-primary)}
+.drop .dh{font-size:12px;color:var(--text-muted)}
+.fname{font-family:var(--font-mono);font-size:12px;color:var(--cds-text-secondary);word-break:break-all}
+.drop-row{display:flex;justify-content:flex-end}
+
+/* Buttons */
+button{font:inherit;font-size:13px;color:var(--cds-text-primary);cursor:pointer;border-radius:0}
+.btn{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border:1px solid transparent;background:var(--cds-layer-02);color:var(--cds-text-primary)}
+.btn:hover{background:var(--cds-layer-hover-01);border-color:var(--cds-border-strong)}
+.btn.primary{background:var(--cds-button-primary);color:#fff}
+.btn.primary:hover{background:var(--cds-button-primary-hover);border-color:transparent}
+.btn.primary:active{background:var(--cds-button-primary-active)}
+.btn.ghost{background:transparent;color:var(--cds-link-primary);min-height:32px;padding:0 8px;font-size:12.5px}
+.btn.ghost:hover{background:var(--cds-layer-02);border-color:transparent}
+
+/* ── Results ── */
 .main{min-width:0}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-bottom:12px}
-.tile{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px}
-.tile .t-head{display:flex;align-items:center;gap:8px;font-weight:600;margin-bottom:8px}
-.sw{display:inline-block;width:12px;height:12px;border-radius:3px}
-.tile .row{display:flex;justify-content:space-between;gap:8px;padding:3px 0;border-top:1px solid var(--grid)}
+.sec-head{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:4px 0 12px}
+.sec-head h2{margin:0;font-family:var(--font-display);font-size:20px;font-weight:600}
+.sec-head p{margin:0;color:var(--cds-text-secondary);font-size:12.5px;font-family:var(--font-mono)}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:16px;margin-bottom:16px}
+.tile{background:var(--cds-layer-01);border:1px solid var(--cds-border-subtle);border-top:3px solid var(--tile-c,var(--cds-button-primary));padding:14px 16px}
+.tile .t-head{display:flex;align-items:center;gap:8px;font-family:var(--font-display);font-size:16px;font-weight:600;margin-bottom:8px}
+.sw{display:inline-block;width:10px;height:10px;border-radius:0}
+.tile .row{display:grid;grid-template-columns:1fr auto;align-items:center;gap:4px 8px;padding:8px 0;border-top:1px solid var(--grid)}
 .tile .row:first-of-type{border-top:none}
-.tile .k{color:var(--text-secondary)}
-.tile .v{font-variant-numeric:tabular-nums;text-align:right}
-.chip{display:inline-flex;align-items:center;gap:4px;font-size:12px;padding:1px 7px;border-radius:999px;border:1px solid var(--border);margin-left:6px}
-.chip .dot{width:8px;height:8px;border-radius:50%}
-.charts{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tile .k{color:var(--cds-text-secondary);font-size:13px}
+.tile .v{font-family:var(--font-mono);font-variant-numeric:tabular-nums;text-align:right;font-size:13px;display:flex;align-items:center;justify-content:flex-end;gap:8px;flex-wrap:wrap}
+.tile .v small{color:var(--text-muted);font-size:12px}
+.chip{display:inline-flex;align-items:center;gap:5px;height:22px;padding:0 8px;border-radius:12px;font-family:var(--font-body);font-size:12px;font-weight:500}
+.chip.ok{background:var(--cds-ok-bg);color:var(--cds-ok-text)}
+.chip.bad{background:var(--cds-bad-bg);color:var(--cds-bad-text)}
+.chip .dot{width:6px;height:6px;border-radius:50%;background:currentColor}
+.charts{display:grid;grid-template-columns:1fr 1fr;gap:16px}
 @media (max-width:1200px){.charts{grid-template-columns:1fr}}
-.card{background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:12px 14px;position:relative;min-width:0}
-.card h3{margin:0 0 2px;font-size:14px}
-.card .cap{color:var(--text-muted);font-size:12px;margin-bottom:6px}
-.card canvas{width:100%;height:260px;display:block;touch-action:pan-y}
-.legend{display:flex;gap:14px;flex-wrap:wrap;font-size:12px;color:var(--text-secondary);margin:4px 0 0}
+.card{background:var(--cds-layer-01);border:1px solid var(--cds-border-subtle);padding:16px;position:relative;min-width:0}
+.card h3{margin:0 0 2px;font-family:var(--font-display);font-size:16px;font-weight:600}
+.card .cap{color:var(--text-muted);font-size:12px;margin-bottom:10px}
+.card canvas{width:100%;height:270px;display:block;touch-action:pan-y}
+.legend{display:flex;gap:6px 16px;flex-wrap:wrap;font-size:12px;color:var(--cds-text-secondary);margin:8px 0 0}
 .legend span{display:inline-flex;align-items:center;gap:6px}
-.legend i{display:inline-block;width:14px;height:2px;border-radius:1px}
-.tooltip{position:absolute;pointer-events:none;background:var(--surface-1);border:1px solid var(--border);border-radius:6px;padding:6px 8px;font-size:12px;box-shadow:0 2px 10px rgba(0,0,0,.15);display:none;white-space:nowrap;z-index:5;font-variant-numeric:tabular-nums}
-.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:12px 0}
-table{border-collapse:collapse;width:100%;font-size:12px;font-variant-numeric:tabular-nums}
-th,td{padding:4px 8px;border-bottom:1px solid var(--grid);text-align:right}
-th{color:var(--text-secondary);font-weight:600;position:sticky;top:0;background:var(--surface-1)}
-.tablewrap{max-height:380px;overflow:auto}
-.note{color:var(--text-secondary);font-size:12px;line-height:1.5}
-.warnbox{border-left:3px solid var(--warning);padding:6px 10px;background:var(--surface-2);border-radius:4px;margin-top:8px;font-size:12px;display:none}
-footer{padding:12px 24px 24px;color:var(--text-muted);font-size:12px}
-details summary{cursor:pointer;color:var(--text-secondary)}
+.legend i{display:inline-block;width:14px;height:2px}
+.tooltip{position:absolute;pointer-events:none;background:var(--cds-layer-01);border:1px solid var(--cds-border-strong);padding:6px 10px;font-family:var(--font-mono);font-size:12px;box-shadow:0 2px 8px rgba(0,0,0,.18);display:none;white-space:nowrap;z-index:5;font-variant-numeric:tabular-nums}
+.toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px 0;padding:8px;background:var(--cds-layer-01);border:1px solid var(--cds-border-subtle)}
+.toolbar .note{margin-left:auto;font-family:var(--font-mono);padding-right:8px}
+table{border-collapse:collapse;width:100%;font-size:12px;font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+th,td{padding:6px 10px;border-bottom:1px solid var(--grid);text-align:right;white-space:nowrap}
+th{color:var(--cds-text-secondary);font-family:var(--font-body);font-weight:600;position:sticky;top:0;background:var(--cds-layer-02)}
+tbody tr:hover td,table tr:hover td{background:var(--cds-layer-hover-01)}
+.tablewrap{max-height:420px;overflow:auto}
+.note{color:var(--cds-text-secondary);font-size:12.5px;line-height:1.55}
+.note p{margin:10px 0;max-width:110ch}
+.warnbox{border-left:3px solid var(--warning);padding:8px 12px;background:var(--cds-support-warning-bg);color:var(--cds-text-primary);font-size:12.5px;margin-top:8px;display:none}
+details.method>summary{cursor:pointer;font-family:var(--font-display);font-weight:600;font-size:16px;list-style:none;display:flex;align-items:center;justify-content:space-between}
+details.method>summary::-webkit-details-marker{display:none}
+details.method[open] .chev{transform:rotate(180deg)}
+.chev{transition:transform .15s ease}
+
+/* ── Footer (as on the portfolio) ── */
+.foot{padding-bottom:40px}
+footer{margin-top:24px;padding-top:20px;border-top:1px solid var(--cds-border-subtle);color:var(--cds-text-secondary);font-size:13px;display:flex;flex-wrap:wrap;gap:6px 18px;align-items:center}
+footer span{display:inline-flex;align-items:center;gap:6px}
+footer a{color:var(--cds-link-primary);text-decoration:none}
+footer a:hover{text-decoration:underline}
+footer .disc{flex-basis:100%;color:var(--text-muted);font-size:12px}
+
+@media (max-width:671px){
+  .shell-actions .lbl{display:none}
+  .shell-name .crumb{display:none}
+  .titleband .wrap{padding-top:20px;padding-bottom:18px}
+  .toolbar .note{margin-left:0;flex-basis:100%}
+}
+@media (prefers-reduced-motion: reduce){*{transition:none !important}}
 </style>
 </head>
 <body>
+<a class="skip" href="#results">Skip to results</a>
+
+<!-- Icons (Lucide-style, MIT) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="icon-github" viewBox="0 0 24 24"><path d="M15 22v-4a4.8 4.8 0 0 0-1-3.5c3 0 6-2 6-5.5.08-1.25-.27-2.48-1-3.5.28-1.15.28-2.35 0-3.5 0 0-1 0-3 1.5-2.64-.5-5.36-.5-8 0C6 2 5 2 5 2c-.3 1.15-.3 2.35 0 3.5A5.4 5.4 0 0 0 4 9c0 3.5 3 5.5 6 5.5-.39.49-.68 1.05-.85 1.65-.17.6-.22 1.23-.15 1.85v4"/><path d="M9 18c-4.51 2-5-2-7-2"/></symbol>
+  <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></symbol>
+  <symbol id="icon-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></symbol>
+  <symbol id="icon-moon" viewBox="0 0 24 24"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></symbol>
+  <symbol id="icon-upload" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></symbol>
+  <symbol id="icon-chev" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+  <symbol id="icon-download" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></symbol>
+  <symbol id="icon-copy" viewBox="0 0 24 24"><rect width="14" height="14" x="8" y="8"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></symbol>
+  <symbol id="icon-table" viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18"/><path d="M3 9h18M3 15h18M9 3v18"/></symbol>
+  <symbol id="icon-lock" viewBox="0 0 24 24"><rect width="18" height="11" x="3" y="11"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></symbol>
+  <symbol id="icon-pin" viewBox="0 0 24 24"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></symbol>
+</svg>
+
 <div class="viz-root">
-<header>
-  <h1>GLEn <span style="font-size:13px;font-weight:500;color:var(--text-muted)">v0.2</span></h1>
-  <span class="sub">Headlamp glare &amp; discomfort evaluator — oncoming driver, straight road</span>
-  <span class="spacer"></span>
-  <button id="themeBtn" title="Toggle light/dark">Light / dark</button>
+<div class="shell">
+  <div class="wrap">
+    <a class="shell-name" href="https://jalibakthermk.github.io/"><img src="favicon.svg" alt="" width="24" height="24"> GLEn <span class="crumb">· Jalib Akther</span></a>
+    <div class="shell-actions">
+      <a href="https://jalibakthermk.github.io/" title="All projects"><svg class="i"><use href="#icon-grid"/></svg> <span class="lbl">Projects</span></a>
+      <a href="https://github.com/jalibakthermk/Glen" title="Source code"><svg class="i"><use href="#icon-github"/></svg> <span class="lbl">Code</span></a>
+      <button type="button" id="themeBtn" aria-label="Toggle light and dark theme" title="Toggle light / dark">
+        <svg class="i sun"><use href="#icon-sun"/></svg><svg class="i moon"><use href="#icon-moon"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<header class="titleband">
+  <svg class="motif" viewBox="0 0 640 200" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true">
+    <ellipse cx="420" cy="140" rx="210" ry="56"/><ellipse cx="420" cy="140" rx="150" ry="40"/><ellipse cx="420" cy="140" rx="92" ry="25"/><ellipse cx="420" cy="140" rx="44" ry="12"/>
+    <path class="cut" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M0 140H330L366 104H640"/>
+    <path class="cut" stroke-width="1.5" stroke-dasharray="4 5" d="M120 60C220 90 300 116 360 132"/>
+    <circle cx="120" cy="60" r="5" fill="var(--cds-cut)" stroke="none"/>
+  </svg>
+  <div class="wrap">
+    <p class="eyebrow">Headlamps · glare · CIE 146 / de Boer</p>
+    <h1><b>GLEn</b> Headlamp glare evaluator <span class="ver">v0.2</span></h1>
+    <p class="sub">Oncoming-driver glare on a straight road: eye illuminance, de Boer discomfort rating and threshold increment against distance, from your headlamp IES files.</p>
+    <span class="privacy"><svg class="i"><use href="#icon-lock"/></svg> Files are processed locally in your browser — nothing is uploaded.</span>
+  </div>
 </header>
 
-<div class="layout">
-<aside>
-  <div class="panel">
-    <h2>Photometry</h2>
-    <div class="file">
-      <div>Left lamp IES</div>
-      <input type="file" id="fileL" accept=".ies,.IES,.txt">
-      <div class="fname" id="nameL">Demo low beam (synthetic)</div>
+<div class="wrap layout">
+<aside aria-label="Inputs">
+  <details class="panel" open>
+    <summary><h2>Photometry</h2><svg class="i chev"><use href="#icon-chev"/></svg></summary>
+    <div class="pbody">
+      <label class="drop" id="dropL">
+        <input type="file" id="fileL" accept=".ies,.IES,.txt">
+        <span class="dt"><svg class="i"><use href="#icon-upload"/></svg> Left lamp IES</span>
+        <span class="fname" id="nameL">Demo low beam (synthetic)</span>
+        <span class="dh">Drop a file here or click to browse</span>
+      </label>
+      <label class="drop" id="dropR">
+        <input type="file" id="fileR" accept=".ies,.IES,.txt">
+        <span class="dt"><svg class="i"><use href="#icon-upload"/></svg> Right lamp IES <span class="dh">(optional)</span></span>
+        <span class="fname" id="nameR">— same as left</span>
+        <span class="dh">Leave empty to use the left file for both lamps</span>
+      </label>
+      <div class="drop-row"><button type="button" class="btn ghost" id="clrR">Clear right file</button></div>
+      <div class="field"><label for="angSys">Angle system</label>
+        <select id="angSys"><option value="auto">Auto (from file)</option><option value="A">Type A (H about vertical axis)</option><option value="B">Type B (V planes about lateral axis)</option><option value="C">Type C (C-planes, γ)</option></select></div>
+      <div class="field" id="cfwdRow"><label for="cFwd">C-plane pointing ahead</label>
+        <select id="cFwd"><option value="0">C0</option><option value="90">C90</option><option value="180">C180</option><option value="270">C270</option></select></div>
+      <div class="field"><label for="hdir">H+ direction in file</label>
+        <select id="hdir"><option value="right">Right</option><option value="left">Left</option></select></div>
+      <div class="field"><label for="aimV">Vertical aim (°, − = down)</label><input id="aimV" type="number" step="0.01" value="0"></div>
+      <div class="field"><label for="aimH">Horizontal aim (°, + = right)</label><input id="aimH" type="number" step="0.01" value="0"></div>
+      <div class="hint" id="iesInfo"></div>
+      <div class="warnbox" id="iesWarn"></div>
     </div>
-    <div class="file">
-      <div>Right lamp IES <span class="hint">(optional — left file used if empty)</span></div>
-      <input type="file" id="fileR" accept=".ies,.IES,.txt">
-      <div class="fname" id="nameR">—</div>
-      <button id="clrR" style="margin-top:4px;padding:2px 8px;font-size:12px">Clear right file</button>
+  </details>
+
+  <details class="panel" open>
+    <summary><h2>Vehicle</h2><svg class="i chev"><use href="#icon-chev"/></svg></summary>
+    <div class="pbody">
+      <div class="field"><label for="hLamp">Lamp mounting height (m)</label><input id="hLamp" type="number" step="0.01" value="0.65"></div>
+      <div class="field"><label for="spacing">Lamp spacing, centre–centre (m)</label><input id="spacing" type="number" step="0.01" value="1.40"></div>
     </div>
-    <div class="field"><label>Angle system</label>
-      <select id="angSys"><option value="auto">Auto (from file)</option><option value="A">Type A (H about vertical axis)</option><option value="B">Type B (V planes about lateral axis)</option><option value="C">Type C (C-planes, γ)</option></select></div>
-    <div class="field" id="cfwdRow"><label>C-plane pointing ahead</label>
-      <select id="cFwd"><option value="0">C0</option><option value="90">C90</option><option value="180">C180</option><option value="270">C270</option></select></div>
-    <div class="field"><label>H+ direction in file</label>
-      <select id="hdir"><option value="right">Right</option><option value="left">Left</option></select></div>
-    <div class="field"><label>Vertical aim (°, − = down)</label><input id="aimV" type="number" step="0.01" value="0"></div>
-    <div class="field"><label>Horizontal aim (°, + = right)</label><input id="aimH" type="number" step="0.01" value="0"></div>
-    <div class="hint" id="iesInfo"></div>
-    <div class="warnbox" id="iesWarn"></div>
-  </div>
+  </details>
 
-  <div class="panel">
-    <h2>Vehicle</h2>
-    <div class="field"><label>Lamp mounting height (m)</label><input id="hLamp" type="number" step="0.01" value="0.65"></div>
-    <div class="field"><label>Lamp spacing, centre–centre (m)</label><input id="spacing" type="number" step="0.01" value="1.40"></div>
-  </div>
+  <details class="panel" open>
+    <summary><h2>Road &amp; observer</h2><svg class="i chev"><use href="#icon-chev"/></svg></summary>
+    <div class="pbody">
+      <div class="field"><label for="traffic">Traffic</label>
+        <select id="traffic"><option value="RHT">RHT (drive right)</option><option value="LHT">LHT (drive left)</option></select></div>
+      <div class="field"><label for="lat">Observer lateral offset (m)</label><input id="lat" type="number" step="0.05" value="3.10"></div>
+      <div class="hint">Lateral distance from your vehicle centreline to the oncoming driver's eye. For a 3.5 m lane, about 3.1 m (lane width less ~0.4 m seat offset).</div>
+      <div class="field"><label for="eyes">Eye heights (m, up to 3)</label><input id="eyes" type="text" value="1.1, 2.2"></div>
+      <div class="field"><label for="dmin">Distance from (m)</label><input id="dmin" type="number" step="1" value="10"></div>
+      <div class="field"><label for="dmax">Distance to (m)</label><input id="dmax" type="number" step="1" value="200"></div>
+      <div class="field"><label for="dstep">Step (m)</label><input id="dstep" type="number" step="0.5" value="1"></div>
+    </div>
+  </details>
 
-  <div class="panel">
-    <h2>Road &amp; observer</h2>
-    <div class="field"><label>Traffic</label>
-      <select id="traffic"><option value="RHT">RHT (drive right)</option><option value="LHT">LHT (drive left)</option></select></div>
-    <div class="field"><label>Observer lateral offset (m)</label><input id="lat" type="number" step="0.05" value="3.10"></div>
-    <div class="hint">Lateral distance from your vehicle centreline to the oncoming driver's eye. For a 3.5 m lane, about 3.1 m (lane width less ~0.4 m seat offset).</div>
-    <div class="field"><label>Eye heights (m, comma list ≤3)</label><input id="eyes" type="text" value="1.1, 2.2"></div>
-    <div class="field"><label>Distance from (m)</label><input id="dmin" type="number" step="1" value="10"></div>
-    <div class="field"><label>Distance to (m)</label><input id="dmax" type="number" step="1" value="200"></div>
-    <div class="field"><label>Step (m)</label><input id="dstep" type="number" step="0.5" value="1"></div>
-  </div>
+  <details class="panel">
+    <summary><h2>Glare model</h2><svg class="i chev"><use href="#icon-chev"/></svg></summary>
+    <div class="pbody">
+      <div class="field"><label for="La">Adaptation luminance L<sub>a</sub> (cd/m²)</label><input id="La" type="number" step="0.01" value="0.3"></div>
+      <div class="hint">≈0.1 unlit rural road · 0.3–1 lit road. Used for both de Boer and TI.</div>
+      <div class="field"><label for="age">Observer age (years)</label><input id="age" type="number" step="1" value="40"></div>
+      <div class="field"><label for="pig">Eye pigmentation p</label>
+        <select id="pig"><option value="0">0 (very dark)</option><option value="0.5" selected>0.5 (brown)</option><option value="1">1 (light blue)</option></select></div>
+      <div class="field"><label for="lvModel">Veiling luminance model</label>
+        <select id="lvModel"><option value="cie">CIE 146 (age-adjusted)</option><option value="sh">Stiles–Holladay</option></select></div>
+      <div class="field"><label for="thMin">Min. glare angle (°)</label><input id="thMin" type="number" step="0.05" value="0.1"></div>
+      <div class="field"><label for="eyePlane">Eye illuminance plane</label>
+        <select id="eyePlane"><option value="lamp">Normal to lamp (worst case)</option><option value="los">Normal to line of sight (E·cosθ)</option></select></div>
+      <div class="field"><label for="tau">Windscreen transmission τ</label><input id="tau" type="number" step="0.01" min="0.01" max="1" value="1"></div>
+      <div class="hint">τ = 1 gives the illuminance outside the car. Typical windscreens are about 0.75–0.9.</div>
+    </div>
+  </details>
 
-  <div class="panel">
-    <h2>Glare model</h2>
-    <div class="field"><label>Adaptation luminance L<sub>a</sub> (cd/m²)</label><input id="La" type="number" step="0.01" value="0.3"></div>
-    <div class="hint">≈0.1 unlit rural road · 0.3–1 lit road. Used for both de Boer and TI.</div>
-    <div class="field"><label>Observer age (years)</label><input id="age" type="number" step="1" value="40"></div>
-    <div class="field"><label>Eye pigmentation p</label>
-      <select id="pig"><option value="0">0 (very dark)</option><option value="0.5" selected>0.5 (brown)</option><option value="1">1 (light blue)</option></select></div>
-    <div class="field"><label>Veiling luminance model</label>
-      <select id="lvModel"><option value="cie">CIE 146 (age-adjusted)</option><option value="sh">Stiles–Holladay</option></select></div>
-    <div class="field"><label>Min. glare angle (°)</label><input id="thMin" type="number" step="0.05" value="0.1"></div>
-    <div class="field"><label>Eye illuminance plane</label>
-      <select id="eyePlane"><option value="lamp">Normal to lamp (worst case)</option><option value="los">Normal to line of sight (E·cosθ)</option></select></div>
-    <div class="field"><label>Windscreen transmission τ</label><input id="tau" type="number" step="0.01" min="0.01" max="1" value="1"></div>
-    <div class="hint">τ = 1 gives the illuminance outside the car. Typical windscreens are about 0.75–0.9.</div>
-  </div>
-
-  <div class="panel">
-    <h2>Limits (pass / fail)</h2>
-    <div class="field"><label>Max eye illuminance (lx)</label><input id="limE" type="number" step="0.05" value="1.0"></div>
-    <div class="field"><label>Min de Boer W</label><input id="limW" type="number" step="0.1" value="4"></div>
-    <div class="field"><label>Max TI (%)</label><input id="limTI" type="number" step="1" value="15"></div>
-    <div class="hint">Project defaults — set these to your customer or study criteria.</div>
-  </div>
+  <details class="panel">
+    <summary><h2>Limits (pass / fail)</h2><svg class="i chev"><use href="#icon-chev"/></svg></summary>
+    <div class="pbody">
+      <div class="field"><label for="limE">Max eye illuminance (lx)</label><input id="limE" type="number" step="0.05" value="1.0"></div>
+      <div class="field"><label for="limW">Min de Boer W</label><input id="limW" type="number" step="0.1" value="4"></div>
+      <div class="field"><label for="limTI">Max TI (%)</label><input id="limTI" type="number" step="1" value="15"></div>
+      <div class="hint">Project defaults — set these to your customer or study criteria.</div>
+    </div>
+  </details>
 </aside>
 
-<section class="main">
+<section class="main" id="results">
   <div class="warnbox" id="cfgWarn" style="margin:0 0 12px"></div>
+  <div class="sec-head"><h2>Worst case per eye height</h2><p id="srcLine"></p></div>
   <div class="tiles" id="tiles"></div>
 
   <div class="charts">
@@ -180,30 +359,40 @@ details summary{cursor:pointer;color:var(--text-secondary)}
   </div>
 
   <div class="toolbar">
-    <button class="primary" id="csvBtn">Export CSV</button>
-    <button id="copyBtn">Copy CSV</button>
-    <button id="tblBtn">Show data table</button>
+    <button type="button" class="btn primary" id="csvBtn"><svg class="i"><use href="#icon-download"/></svg> Export CSV</button>
+    <button type="button" class="btn" id="copyBtn"><svg class="i"><use href="#icon-copy"/></svg> <span>Copy CSV</span></button>
+    <button type="button" class="btn" id="tblBtn"><svg class="i"><use href="#icon-table"/></svg> <span>Show data table</span></button>
     <span class="note" id="b50"></span>
   </div>
-  <div class="card" id="tblCard" style="display:none"><div class="tablewrap" id="tbl"></div></div>
+  <div class="card" id="tblCard" style="display:none;padding:0"><div class="tablewrap" id="tbl"></div></div>
 
-  <div class="card" style="margin-top:12px">
-    <details>
-      <summary>Method &amp; formulas</summary>
+  <div class="card" style="margin-top:16px">
+    <details class="method">
+      <summary>Method &amp; formulas <svg class="i chev"><use href="#icon-chev"/></svg></summary>
       <div class="note">
         <p><b>Geometry.</b> Vehicle frame: x forward, y left, z up. Lamps at (0, ±s/2, h<sub>lamp</sub>), observer eye at (d, ±offset, h<sub>eye</sub>), with offset to the left for RHT and to the right for LHT. The direction to the eye is rotated into the lamp frame (aim) and converted to the file's angle system: Type A H = atan2(y,x), V = asin(z/r); Type B V = atan2(z,x), H = asin(y/r); Type C γ = acos(−z/r), C = atan2(y,x). Intensity uses bilinear interpolation with IES symmetry handling.</p>
-        <p><b>Eye illuminance.</b> E = I / r² per lamp, with the observer's eye facing the lamp (worst case), summed over both lamps.</p>
+        <p><b>Eye illuminance.</b> E = τ · I / r² per lamp, with the eye plane either normal to the lamp (worst case) or normal to the line of sight (× cos θ), summed over both lamps.</p>
         <p><b>Glare angle.</b> θ is the angle between the oncoming driver's line of sight (straight along the road) and the direction to each lamp, clamped at the set minimum.</p>
         <p><b>de Boer (Schmidt-Clausen &amp; Bindels).</b> W = 5 − 2·log₁₀ Σ E<sub>i</sub> / [C<sub>p00</sub>(1 + √(L<sub>a</sub>/C<sub>pL</sub>))·θ<sub>i</sub><sup>0.46</sup>], with C<sub>p00</sub> = 0.003 lx·min<sup>−0.46</sup>, C<sub>pL</sub> = 0.04 cd/m², θ in arcmin. Displayed W is clipped to 1–9.</p>
         <p><b>Veiling luminance.</b> CIE 146: L<sub>v</sub> = Σ E<sub>i</sub>[10/θ³ + (5/θ² + 0.1p/θ)(1 + (A/62.5)⁴) + 0.0025p], θ in degrees. Stiles–Holladay: L<sub>v</sub> = 10 Σ E<sub>i</sub>/θ<sub>i</sub>². <b>TI</b> = 65·L<sub>v</sub>/L<sub>a</sub><sup>0.8</sup> % (defined for L<sub>a</sub> ≤ 5 cd/m²).</p>
         <p><b>Validity.</b> CIE 146 veiling luminance is defined for θ = 0.1–100°, Stiles–Holladay for about 1–30°; de Boer data cover roughly 0.1–15°. Points outside these ranges are marked in the table and CSV. At long distances θ becomes small and the 1/θ³ term in CIE 146 dominates, so TI can grow with distance; read those values with care.</p>
-        <p><b>Scope of v1.</b> Straight, flat road; static observer looking along the road; no windscreen transmission or dirty-glass scatter. Planned next: curves, gradients, mirror glare for preceding vehicles, and a PDF report.</p>
+        <p><b>Scope.</b> Straight, flat road; static observer looking along the road; no dirty-glass scatter. Planned next: curves, gradients, mirror glare for preceding vehicles, and a PDF report.</p>
       </div>
     </details>
   </div>
 </section>
 </div>
-<footer>GLEn v0.2 · © 2026 Jalib Akther · MIT License · Results are engineering estimates; check them against measured data before relying on them.</footer>
+
+<div class="wrap foot">
+  <footer>
+    <span>GLEn v0.2</span>
+    <span>© 2026 Jalib Akther</span>
+    <span><svg class="i"><use href="#icon-pin"/></svg> Thrissur, India</span>
+    <span>MIT License</span>
+    <a href="https://jalibakthermk.github.io/">More lighting tools →</a>
+    <span class="disc">Results are engineering estimates; check them against measured data before relying on them.</span>
+  </footer>
+</div>
 </div>
 
 <script id="core">
@@ -436,6 +625,10 @@ function iesInfo() {
 
 function loadFile(input, which) {
   const file = input.files[0]; if (!file) return;
+  readIES(file, which);
+  input.value = '';
+}
+function readIES(file, which) {
   const rd = new FileReader();
   rd.onload = () => {
     try {
@@ -445,7 +638,6 @@ function loadFile(input, which) {
     } catch (e) { alertBox(file.name + ': ' + e.message); }
   };
   rd.readAsText(file);
-  input.value = '';
 }
 function alertBox(msg) { $('iesWarn').style.display = 'block'; $('iesWarn').textContent = msg; }
 
@@ -455,17 +647,16 @@ function worst(rows) {
   return { e, w, t };
 }
 function chip(ok) {
-  const c = ok ? css('--good') : css('--critical');
-  return `<span class="chip"><span class="dot" style="background:${c}"></span>${ok ? '✓ Pass' : '✕ Fail'}</span>`;
+  return `<span class="chip ${ok ? 'ok' : 'bad'}"><span class="dot"></span>${ok ? 'Pass' : 'Fail'}</span>`;
 }
 
 function renderTiles(res, cfg) {
   $('tiles').innerHTML = res.map((s, k) => {
     const { e, w, t } = worst(s.rows);
-    return `<div class="tile"><div class="t-head"><span class="sw" style="background:${css(SERIES[k])}"></span>Eye height ${s.eye} m</div>
-      <div class="row"><span class="k">Max E<sub>eye</sub></span><span class="v">${fmt(e.E)} lx @ ${e.d} m${chip(e.E <= cfg.limE)}</span></div>
-      <div class="row"><span class="k">Min de Boer W</span><span class="v">${w.W.toFixed(2)} @ ${w.d} m${chip(w.W >= cfg.limW)}</span></div>
-      <div class="row"><span class="k">Max TI</span><span class="v">${fmt(t.TI)} % @ ${t.d} m${chip(t.TI <= cfg.limTI)}</span></div></div>`;
+    return `<div class="tile" style="--tile-c:${css(SERIES[k])}"><div class="t-head"><span class="sw" style="background:${css(SERIES[k])}"></span>Eye height ${s.eye} m</div>
+      <div class="row"><span class="k">Max E<sub>eye</sub></span><span class="v">${fmt(e.E)} lx <small>@ ${e.d} m</small>${chip(e.E <= cfg.limE)}</span></div>
+      <div class="row"><span class="k">Min de Boer W</span><span class="v">${w.W.toFixed(2)} <small>@ ${w.d} m</small>${chip(w.W >= cfg.limW)}</span></div>
+      <div class="row"><span class="k">Max TI</span><span class="v">${fmt(t.TI)} % <small>@ ${t.d} m</small>${chip(t.TI <= cfg.limTI)}</span></div></div>`;
   }).join('');
 }
 
@@ -499,7 +690,7 @@ function lineChart(id, res, key, opt) {
   const Y = v => { const t = opt.log ? Math.log10(Math.max(v, 10 ** y0)) : v; return m.t + ph - (t - y0) / (y1 - y0) * ph; };
   const draw = hoverI => {
     ctx.clearRect(0, 0, W, H);
-    ctx.font = '11px system-ui, sans-serif'; ctx.textBaseline = 'middle';
+    ctx.font = '11px "IBM Plex Sans", system-ui, sans-serif'; ctx.textBaseline = 'middle';
     ctx.strokeStyle = css('--grid'); ctx.lineWidth = 1; ctx.fillStyle = css('--text-muted');
     for (const t of ticks) {
       const y = opt.log ? m.t + ph - (t - y0) / (y1 - y0) * ph : Y(t);
@@ -578,7 +769,7 @@ function mapChart(res, cfg) {
     ctx.clearRect(0, 0, W, H); ctx.imageSmoothingEnabled = true; ctx.drawImage(off, m.l, m.t, pw, ph);
     ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 1;
     ctx.beginPath(); ctx.moveTo(X(0), m.t); ctx.lineTo(X(0), m.t + ph); ctx.moveTo(m.l, Y(0)); ctx.lineTo(m.l + pw, Y(0)); ctx.stroke();
-    ctx.fillStyle = css('--text-muted'); ctx.font = '11px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillStyle = css('--text-muted'); ctx.font = '11px "IBM Plex Sans", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
     for (let h = Hr[0]; h <= Hr[1]; h += Hr[1] > 15 ? 10 : 5) ctx.fillText(h === 0 ? '0' : (h < 0 ? Math.abs(h) + 'L' : h + 'R'), X(h), m.t + ph + 6);
     ctx.fillText('Horizontal angle (°)', m.l + pw / 2, m.t + ph + 20);
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
@@ -668,13 +859,21 @@ function run() {
   $('tiNote').textContent = fl ? `Glare angle (to at least one lamp) is outside the ${cfg.lvModel === 'sh' ? 'Stiles–Holladay' : 'CIE 146'} range (${lr[0]}–${lr[1]}°) ${fl}. Treat those values as indicative.` : '';
   $('wNote').textContent = fw ? `Glare angle (to at least one lamp) is outside the de Boer data range (≈0.1–15°) ${fw}.` : '';
   mapChart(res, cfg); b50Info(cfg);
+  $('srcLine').textContent = `${$('nameL').textContent}${state.iesR ? ' + ' + $('nameR').textContent : ''} · ${cfg.rht ? 'RHT' : 'LHT'} · ${cfg.dmin}–${cfg.dmax} m`;
   if ($('tblCard').style.display !== 'none') renderTable(res);
 }
 
 document.querySelectorAll('aside input:not([type=file]), aside select').forEach(el => el.addEventListener('input', () => { clearTimeout(run.t); run.t = setTimeout(run, 150); }));
 $('fileL').addEventListener('change', e => loadFile(e.target, 'iesL'));
 $('fileR').addEventListener('change', e => loadFile(e.target, 'iesR'));
-$('clrR').onclick = () => { state.iesR = null; $('nameR').textContent = '—'; run(); };
+$('clrR').onclick = () => { state.iesR = null; $('nameR').textContent = '— same as left'; run(); };
+// Drag and drop onto the IES zones
+[['dropL', 'iesL'], ['dropR', 'iesR']].forEach(([id, which]) => {
+  const z = $(id);
+  z.addEventListener('dragover', e => { e.preventDefault(); z.classList.add('over'); });
+  z.addEventListener('dragleave', () => z.classList.remove('over'));
+  z.addEventListener('drop', e => { e.preventDefault(); z.classList.remove('over'); const f = e.dataTransfer.files[0]; if (f) readIES(f, which); });
+});
 let dl = null; // artifact viewer download capability (null on GitHub Pages / plain file)
 try { if (window.claude && window.claude.use) window.claude.use('downloads').then(x => { dl = x; }).catch(() => {}); } catch (e) {}
 $('csvBtn').onclick = async () => {
@@ -686,20 +885,25 @@ $('csvBtn').onclick = async () => {
   setTimeout(() => URL.revokeObjectURL(a.href), 2000);
 };
 $('copyBtn').onclick = async () => {
-  try { await navigator.clipboard.writeText(toCSV(state.result, state.cfg)); $('copyBtn').textContent = 'Copied ✓'; }
-  catch (e) { $('copyBtn').textContent = 'Copy blocked'; }
-  setTimeout(() => $('copyBtn').textContent = 'Copy CSV', 1800);
+  const lbl = $('copyBtn').querySelector('span');
+  try { await navigator.clipboard.writeText(toCSV(state.result, state.cfg)); lbl.textContent = 'Copied'; }
+  catch (e) { lbl.textContent = 'Copy blocked'; }
+  setTimeout(() => lbl.textContent = 'Copy CSV', 1800);
 };
 $('tblBtn').onclick = () => {
   const show = $('tblCard').style.display === 'none'; $('tblCard').style.display = show ? 'block' : 'none';
-  $('tblBtn').textContent = show ? 'Hide data table' : 'Show data table'; if (show) renderTable(state.result);
+  $('tblBtn').querySelector('span').textContent = show ? 'Hide data table' : 'Show data table'; if (show) renderTable(state.result);
 };
 $('themeBtn').onclick = () => {
   const r = document.documentElement, dark = r.dataset.theme ? r.dataset.theme === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
-  r.dataset.theme = dark ? 'light' : 'dark'; run();
+  r.dataset.theme = dark ? 'light' : 'dark';
+  try { localStorage.setItem('theme', r.dataset.theme); } catch (e) {}
+  run();
 };
 window.addEventListener('resize', () => { clearTimeout(run.r); run.r = setTimeout(run, 120); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => run());
 run();
+if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => run()); // redraw charts once IBM Plex has loaded
 </script>
 </body>
 </html>
